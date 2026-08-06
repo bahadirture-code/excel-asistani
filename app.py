@@ -26,9 +26,11 @@ def load_file(file_bytes, filename, sheet_name=0):
 
 def get_excel_sheets(file_bytes):
     try:
+        # ExcelFile'a BytesIO olarak ver
         xl = pd.ExcelFile(io.BytesIO(file_bytes), engine='openpyxl')
         return xl.sheet_names
-    except Exception:
+    except Exception as e:
+        st.error(f"Sayfalar okunamadı: {e}")
         return []
 
 def export_file(df, format_type="xlsx", filename="veri"):
@@ -74,27 +76,28 @@ if uploaded_files:
                 sheets = get_excel_sheets(file_bytes)
                 if sheets:
                     selected_sheet = sheets[0]  # varsayılan ilk sayfa
-            # CSV için sheets boş, selected_sheet = None
+                else:
+                    st.warning(f"⚠️ {file.name} için sayfa bulunamadı veya okunamadı.")
             st.session_state.file_data[file.name] = {
                 'bytes': file_bytes,
                 'sheets': sheets,
                 'selected_sheet': selected_sheet,
-                'df': None  # henüz yüklenmedi
+                'df': None
             }
 
 # ==========================
 # HER DOSYA İÇİN SAYFA SEÇİMİ VE VERİ YÜKLEME
 # ==========================
 if st.session_state.file_data:
-    st.subheader("📁 Yüklenen Dosyalar")
+    st.subheader("📁 Yüklenen Dosyalar - Her dosyanın altından sayfa seçin")
     for name, data in st.session_state.file_data.items():
-        with st.expander(f"📄 {name}", expanded=False):
+        with st.expander(f"📄 {name}", expanded=True):  # expanded=True ile otomatik aç
             # Sayfa seçimi (sadece Excel için)
             if data['sheets']:
                 # Mevcut seçili sayfayı bul
                 current_sheet = data['selected_sheet'] if data['selected_sheet'] else data['sheets'][0]
                 selected_sheet = st.selectbox(
-                    f"Sayfa seçin ({name})",
+                    f"📑 Sayfa seçin ({name})",
                     options=data['sheets'],
                     index=data['sheets'].index(current_sheet) if current_sheet in data['sheets'] else 0,
                     key=f"sheet_{name}"
@@ -108,7 +111,7 @@ if st.session_state.file_data:
                     else:
                         st.error(f"❌ {name} - '{selected_sheet}' yüklenemedi.")
             else:
-                # CSV dosyası - direkt yükle
+                # CSV dosyası veya Excel'de sayfa yoksa direkt yükle
                 if data['df'] is None:
                     data['df'] = load_file(data['bytes'], name)
                     if data['df'] is not None:
@@ -127,7 +130,7 @@ if st.session_state.file_data:
                     if csv_data:
                         st.download_button(f"📄 {name} CSV indir", csv_data, csv_fname, key=f"csv_{name}")
             else:
-                st.warning(f"⚠️ {name} için veri yüklenemedi.")
+                st.warning(f"⚠️ {name} için veri yüklenemedi. Lütfen başka bir sayfa seçmeyi deneyin.")
 
 # ==========================
 # GROQ AI ASİSTANI
@@ -158,7 +161,8 @@ else:
             # Kullanıcıya sütun bilgilerini göster
             st.write("**Seçilen dosyalar ve sütunları:**")
             for name in secili_dosyalar:
-                st.write(f"- **{name}** (sayfa: {st.session_state.file_data[name]['selected_sheet']}): {list(available_dfs[name].columns)}")
+                sheet_name = st.session_state.file_data[name].get('selected_sheet', 'CSV')
+                st.write(f"- **{name}** (sayfa: {sheet_name}): {list(available_dfs[name].columns)}")
 
             user_prompt = st.text_area(
                 "📝 Ne yapmak istiyorsunuz? (Türkçe veya İngilizce)",
