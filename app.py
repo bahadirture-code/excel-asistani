@@ -299,14 +299,11 @@ df1: {list(df1.columns)}{f", df2: {list(df2.columns)}" if df2 is not None else "
 Sadece çalışan Python kodu döndür. Sonucu 'result_df' değişkenine ata.
 Kod bloğunu ```python ... ``` içine al."""
                                 response = client.chat.completions.create(
-                                    model="mixtral-8x7b-32768",
-                                    messages=[
-                                        {"role": "system", "content": sys_msg},
-                                        {"role": "user", "content": user_prompt}
-                                    ],
-                                    temperature=0.3,
-                                    max_tokens=1500
-                                )
+    model="llama-3.3-70b-versatile",  # veya "llama-3.1-8b-instant"
+    messages=[...],
+    temperature=0.3,
+    max_tokens=1500
+)
                                 code_res = response.choices[0].message.content
                                 if "```python" in code_res:
                                     code_clean = code_res.split("```python")[1].split("```")[0].strip()
