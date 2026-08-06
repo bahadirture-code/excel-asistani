@@ -14,68 +14,6 @@ except Exception:
 st.set_page_config(page_title="AI Veri Asistanı", layout="wide", page_icon="🤖")
 
 # ==========================
-# ÖZEL CSS (TEMA)
-# ==========================
-st.markdown("""
-<style>
-    .main { background-color: #f8fafc; }
-    .stApp { max-width: 1400px; margin: 0 auto; }
-    .card {
-        background-color: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        margin-bottom: 1rem;
-        border: 1px solid #e9ecef;
-    }
-    .card-title { font-weight: 600; font-size: 1.1rem; color: #1e293b; }
-    .chat-message {
-        padding: 1rem;
-        border-radius: 12px;
-        margin-bottom: 0.75rem;
-        max-width: 80%;
-    }
-    .chat-message.user {
-        background-color: #dbeafe;
-        margin-left: auto;
-        border-bottom-right-radius: 4px;
-    }
-    .chat-message.assistant {
-        background-color: #f1f5f9;
-        margin-right: auto;
-        border-bottom-left-radius: 4px;
-    }
-    .chat-message .role {
-        font-weight: 600;
-        font-size: 0.8rem;
-        color: #475569;
-        margin-bottom: 0.25rem;
-    }
-    .stButton>button {
-        background-color: #3b82f6;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        padding: 0.5rem 1.5rem;
-        font-weight: 500;
-    }
-    .stButton>button:hover {
-        background-color: #2563eb;
-        box-shadow: 0 4px 12px rgba(59,130,246,0.3);
-    }
-    .stDownloadButton>button {
-        background-color: #10b981;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        padding: 0.5rem 1.5rem;
-        font-weight: 500;
-    }
-    .stDownloadButton>button:hover { background-color: #059669; }
-</style>
-""", unsafe_allow_html=True)
-
-# ==========================
 # YARDIMCI FONKSİYONLAR
 # ==========================
 @st.cache_data(ttl=3600)
@@ -111,7 +49,43 @@ def export_file(df, format_type="xlsx", filename="veri"):
         return None, None
 
 # ==========================
-# OTURUM DURUMU (SESSION STATE)
+# OTOMATİK EŞLEŞTİRME MOTORU
+# ==========================
+def auto_process_files(file_data_dict):
+    gecis_df = None
+    hba_df = None
+    hba_filename = None
+
+    for name, data in file_data_dict.items():
+        if data['df'] is not None:
+            cols_upper = [str(c).upper() for c in data['df'].columns]
+            if 'ANKET_DURUM' in cols_upper and 'DETAY' in cols_upper:
+                gecis_df = data['df'].copy()
+            elif 'ADRESNO' in cols_upper or 'DOLULUK' in cols_upper or 'SAYFA1' in [s.upper() for s in data['sheets']]:
+                hba_df = data['df'].copy()
+                hba_filename = name
+
+    if gecis_df is not None and hba_df is not None:
+        try:
+            gecis_col = [c for c in gecis_df.columns if 'birim' in str(c).lower()][0]
+            hba_col = [c for c in hba_df.columns if 'birim' in str(c).lower()][0]
+
+            gecis_df[gecis_col] = gecis_df[gecis_col].astype(str)
+            hba_df[hba_col] = hba_df[hba_col].astype(str)
+
+            durum_map = dict(zip(gecis_df[gecis_col], gecis_df['ANKET_DURUM']))
+            detay_map = dict(zip(gecis_df[gecis_col], gecis_df['DETAY']))
+
+            hba_df['ANKET_DURUM'] = hba_df[hba_col].map(durum_map)
+            hba_df['DETAY'] = hba_df[hba_col].map(detay_map)
+
+            return hba_df, hba_filename
+        except Exception:
+            return None, None
+    return None, None
+
+# ==========================
+# OTURUM DURUMU
 # ==========================
 if 'file_data' not in st.session_state:
     st.session_state.file_data = {}
@@ -119,11 +93,9 @@ if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'processing' not in st.session_state:
     st.session_state.processing = False
-if 'last_result_df' not in st.session_state:
-    st.session_state.last_result_df = None
 
-st.title("🤖 AI Veri Asistanı")
-st.markdown("**Dosyaları yükleyin, doğal dilde komut yazın, AI işlemi yapsın.**")
+st.title("🤖 AI Veri Asistanı & Otomatik Eşleştirici")
+st.markdown("**Dosyaları yükleyin; sistem geçiş ve HBA dosyalarını algıladığı an otomasyonu çalıştırır.**")
 
 # ==========================
 # DOSYA YÜKLEME
@@ -146,6 +118,7 @@ with st.container():
                     sheets = get_excel_sheets(file_bytes)
                     if sheets:
                         selected_sheet = "Sayfa1" if "Sayfa1" in sheets else sheets[0]
+                
                 st.session_state.file_data[file.name] = {
                     'bytes': file_bytes,
                     'sheets': sheets,
@@ -154,213 +127,71 @@ with st.container():
                 }
 
 # ==========================
-# DOSYA KARTLARI
+# OTOMATİK İŞLEM KONTROLÜ
+# ==========================
+processed_df, target_file_name = auto_process_files(st.session_state.file_data)
+
+if processed_df is not None:
+    st.success(f"⚡ Otomatik Algılama Başarılı! `{target_file_name}` dosyası Anket Durum ve Detay verileriyle güncellendi.")
+    st.markdown("### 🎯 Güncellenmiş Tam Dosya (Tüm Sütunlar Korundu)")
+    st.dataframe(processed_df.head(10), use_container_width=True)
+    
+    excel_bytes, excel_name = export_file(processed_df, "xlsx", f"{target_file_name.split('.')[0]}_GUNCEL")
+    if excel_bytes:
+        st.download_button("📊 Otomatik Güncellenmiş Excel'i İndir", excel_bytes, excel_name, key="auto_download_btn")
+    st.markdown("---")
+
+# ==========================
+# YÜKLENEN DOSYA KARTLARI
 # ==========================
 if st.session_state.file_data:
-    st.subheader("📁 Yüklenen Dosyalar")
+    st.subheader("📁 Yüklenen Ham Dosyalar")
     cols = st.columns(2)
     for idx, (name, data) in enumerate(st.session_state.file_data.items()):
         with cols[idx % 2]:
             with st.container():
-                st.markdown('<div class="card">', unsafe_allow_html=True)
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.markdown(f'<div class="card-title">📄 {name}</div>', unsafe_allow_html=True)
-                with col2:
-                    if st.button("🗑️", key=f"del_{name}"):
-                        del st.session_state.file_data[name]
-                        st.session_state.last_result_df = None
-                        st.rerun()
+                st.markdown(f"**📄 {name}**")
                 if data['sheets']:
-                    current_sheet = data['selected_sheet'] if data['selected_sheet'] else data['sheets'][0]
+                    current_sheet = data['selected_sheet']
                     selected_sheet = st.selectbox(
                         f"Sayfa seçin ({name})",
                         options=data['sheets'],
                         index=data['sheets'].index(current_sheet) if current_sheet in data['sheets'] else 0,
                         key=f"sheet_{name}"
                     )
-                    if data['selected_sheet'] != selected_sheet or data['df'] is None:
+                    if data['selected_sheet'] != selected_sheet:
                         data['selected_sheet'] = selected_sheet
                         data['df'] = load_file(data['bytes'], name, sheet_name=selected_sheet)
-                        if data['df'] is not None:
-                            st.success(f"✅ {selected_sheet} yüklendi ({data['df'].shape[0]} satır × {data['df'].shape[1]} sütun)")
-                else:
-                    if data['df'] is None:
-                        data['df'] = load_file(data['bytes'], name)
-                        if data['df'] is not None:
-                            st.success(f"✅ {name} yüklendi")
-                if data['df'] is not None:
-                    df = data['df']
-                    st.caption(f"{df.shape[0]} satır, {df.shape[1]} sütun")
-                    with st.expander("🔍 Önizleme"):
-                        st.dataframe(df.head(5), use_container_width=True)
-                else:
-                    st.warning("⚠️ Veri yüklenemedi")
-                st.markdown('</div>', unsafe_allow_html=True)
+                        st.rerun()
 
 # ==========================
-# AI ASİSTANI (SOHBET)
+# AI SOHBET (EKSTRA SORULAR İÇİN)
 # ==========================
 st.markdown("---")
-st.header("💬 AI Veri Asistanı ile Sohbet")
+st.header("💬 AI Asistanı (Diğer Analizler İçin)")
 
-if not HAS_GROQ:
-    st.warning("Groq kütüphanesi yüklü değil. `pip install groq` ile yükleyin.")
-else:
-    available_dfs = {name: data['df'] for name, data in st.session_state.file_data.items() if data['df'] is not None}
-    if not available_dfs:
-        st.info("Lütfen önce yukarıdan dosya yükleyin ve bir sayfa seçin.")
-    else:
-        # Sohbet geçmişini çizdir
-        for msg in st.session_state.messages:
-            role_class = "user" if msg["role"] == "user" else "assistant"
-            st.markdown(f'''
-                <div class="chat-message {role_class}">
-                    <div class="role">{msg["role"].capitalize()}</div>
-                    {msg["content"]}
-                </div>
-            ''', unsafe_allow_html=True)
-
-        # AI tarafından üretilen en son başarılı sonucu ekranda ve indirme butonunda göster
-        if st.session_state.last_result_df is not None:
-            st.markdown("### 🎯 Son AI İşlem Çıktısı (Tam Dosya)")
-            res_df = st.session_state.last_result_df
-            st.caption(f"Toplam {res_df.shape[0]} satır ve {res_df.shape[1]} sütun hazır.")
-            st.dataframe(res_df.head(10), use_container_width=True)
+if HAS_GROQ and st.session_state.file_data:
+    prompt = st.chat_input("Farklı bir veri analizi veya sorgu yazın...")
+    if prompt and not st.session_state.processing:
+        st.session_state.processing = True
+        api_key = st.secrets.get("GROQ_API_KEY")
+        if api_key:
+            client = Groq(api_key=api_key)
+            df_desc = [f"df{i+1}: '{n}' (Sütunlar: {list(d['df'].columns if d['df'] is not None else [])})" for i, (n, d) in enumerate(st.session_state.file_data.items())]
             
-            col1, col2 = st.columns(2)
-            with col1:
-                excel_data, excel_fname = export_file(res_df, "xlsx", "AI_ISLENMIS_SONUC")
-                if excel_data:
-                    st.download_button("📊 İşlenmiş Tam Excel'i İndir", excel_data, excel_fname, key="download_excel_result")
-            with col2:
-                csv_data, csv_fname = export_file(res_df, "csv", "AI_ISLENMIS_SONUC")
-                if csv_data:
-                    st.download_button("📄 İşlenmiş CSV İndir", csv_data, csv_fname, key="download_csv_result")
-
-        # Kullanıcı komut girişi
-        prompt = st.chat_input("Ne yapmak istersiniz? (Türkçe, doğal dil)")
-        if prompt and not st.session_state.processing:
-            st.session_state.processing = True
-            try:
-                st.session_state.messages.append({"role": "user", "content": prompt})
-                api_key = st.secrets.get("GROQ_API_KEY")
-                if not api_key:
-                    st.error("❌ GROQ_API_KEY eksik")
-                    st.session_state.processing = False
-                    st.rerun()
-
-                client = Groq(api_key=api_key)
-
-                # Prompt için mevcut yüklemelerin özetini çıkar
-                df_desc = []
-                for i, (name, data) in enumerate(st.session_state.file_data.items(), start=1):
-                    df = data['df']
-                    if df is not None:
-                        cols = list(df.columns)
-                        sheet_info = f" (Aktif Sekme: '{data.get('selected_sheet')}')" if data.get('selected_sheet') else ""
-                        df_desc.append(f"df{i} -> Dosya Adı: '{name}'{sheet_info}, Sütunlar: {cols}")
-
-                df_list_str = "\n".join(df_desc)
-
-                sys_msg = f"""Sen uzman bir Python Pandas veri analistisin. Kullanıcı Türkçe doğal dilde ne istediğini söyleyecek.
-
-Mevcut Yüklü DataFrame'ler:
-{df_list_str}
-
-ÇOK ÖNEMLİ KODLAMA KURALLARI:
-1. ANA DOSYANIN TÜM SÜTUNLARINI KORU (KIRPMA YAPMA):
-   - Hedef dosya hangisiyse onun tüm sütun yapısını (örneğin 17 sütunun hepsini) korumalısın.
-   - Diğer dosyadan bilgi aktarırken `.map()` yöntemini kullan.
-   - ÖRNEK KOD YAPISI:
-     df1['birimno'] = df1['birimno'].astype(str)
-     df2['BIRIMNO'] = df2['BIRIMNO'].astype(str)
-     durum_map = dict(zip(df2['BIRIMNO'], df2['ANKET_DURUM']))
-     detay_map = dict(zip(df2['BIRIMNO'], df2['DETAY']))
-     df1['ANKET_DURUM'] = df1['birimno'].map(durum_map)
-     df1['DETAY'] = df1['birimno'].map(detay_map)
-     result_df = df1
-
-2. VERİ TİPİ DÖNÜŞÜMÜ:
-   - `birimno` veya `BIRIMNO` sütunlarını işlem öncesi MUTLAKA `.astype(str)` ile metne dönüştür.
-
-3. ÇIKTI ŞARTLARI:
-   - Oluşan güncel Dataframe'i KESİNLİKLE `result_df` isimli değişkene ata.
-
-4. YANIT FORMATI:
-   Yanıtını YALNIZCA aşağıdaki JSON formatında ver:
-{{
-  "status": "success",
-  "explanation": "İşlemin açıklaması",
-  "code": "# Python kuralı"
-}}
-
-Eğer durum net değilse:
-{{
-  "status": "need_clarification",
-  "question": "Soru"
-}}
-"""
-                response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[
-                        {"role": "system", "content": sys_msg},
-                        {"role": "user", "content": f"Kullanıcı komutu: {prompt}"}
-                    ],
-                    temperature=0.1,
-                    max_tokens=2000,
-                    response_format={"type": "json_object"}
-                )
-                raw_response = response.choices[0].message.content
-                try:
-                    data = json.loads(raw_response)
-                except json.JSONDecodeError:
-                    st.session_state.messages.append({"role": "assistant", "content": f"⚠️ Beklenmeyen yanıt formatı: {raw_response[:200]}"})
-                    st.session_state.processing = False
-                    st.rerun()
-
-                if data.get("status") == "need_clarification":
-                    question = data.get("question", "Anlamadım, lütfen daha açıklayıcı olur musunuz?")
-                    st.session_state.messages.append({"role": "assistant", "content": f"❓ {question}"})
-                    st.session_state.processing = False
-                    st.rerun()
-                elif data.get("status") == "success":
-                    code = data.get("code")
-                    explanation = data.get("explanation", "İşlem tamamlandı")
-                    try:
-                        local_vars = {}
-                        for i, (name, data_obj) in enumerate(st.session_state.file_data.items(), start=1):
-                            if data_obj['df'] is not None:
-                                local_vars[f"df{i}"] = data_obj['df'].copy()
-                        local_vars["pd"] = pd
-                        
-                        exec(code, {}, local_vars)
-                        result_df = local_vars.get("result_df")
-                        
-                        if result_df is not None and isinstance(result_df, pd.DataFrame):
-                            # Kalıcı state'e atayarak kaybolmasını önlüyoruz
-                            st.session_state.last_result_df = result_df
-                            st.session_state.messages.append({"role": "assistant", "content": f"✅ {explanation}"})
-                            st.session_state.processing = False
-                            st.rerun()
-                        else:
-                            st.session_state.messages.append({"role": "assistant", "content": "⚠️ Kod çalıştı ama 'result_df' oluşturulamadı."})
-                            st.session_state.processing = False
-                            st.rerun()
-                    except Exception as e:
-                        st.session_state.messages.append({"role": "assistant", "content": f"❌ Kod hatası: {str(e)[:200]}"})
-                        st.session_state.processing = False
-                        st.rerun()
-                else:
-                    st.session_state.messages.append({"role": "assistant", "content": f"⚠️ Beklenmeyen yanıt formatı: {raw_response[:200]}"})
-                    st.session_state.processing = False
-                    st.rerun()
-            except Exception as e:
-                st.session_state.messages.append({"role": "assistant", "content": f"❌ Bir hata oluştu: {str(e)[:200]}"})
-                st.session_state.processing = False
-                st.rerun()
-
-    if st.button("🗑️ Sohbet Geçmişini Temizle"):
-        st.session_state.messages = []
-        st.session_state.last_result_df = None
-        st.rerun()
+            sys_msg = f"""Sen bir Pandas analistisin. Mevcut veriler:\n{chr(10).join(df_desc)}\nSonucu `result_df` yap ve JSON ver: {{"status":"success","code":"..."}}"""
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            data = json.loads(response.choices[0].message.content)
+            if data.get("status") == "success":
+                local_vars = {f"df{i+1}": d['df'].copy() for i, (n, d) in enumerate(st.session_state.file_data.items()) if d['df'] is not None}
+                local_vars["pd"] = pd
+                exec(data.get("code"), {}, local_vars)
+                res = local_vars.get("result_df")
+                if res is not None:
+                    st.dataframe(res.head(10), use_container_width=True)
+        st.session_state.processing = False
