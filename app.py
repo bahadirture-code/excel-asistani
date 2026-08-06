@@ -1,312 +1,144 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import os
 import io
-from PIL import Image
-from dotenv import load_dotenv
-from google import genai
 
-# .env yükle
-load_dotenv()
+st.set_page_config(page_title="Excel & Veri İşleme Merkezi", layout="wide", page_icon="📊")
 
-# Sayfa Ayarları
-st.set_page_config(
-    page_title="AI Veri Analiz Platformu",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.title("📊 Akıllı Excel & Raporlama Merkezi")
+st.markdown("Formüllerle ve makrolarla uğraşmadan tüm veri eşleştirme ve temizleme işlemlerinizi buradan yapabilirsiniz.")
 
-# Modern UI / Kart Stilleri
-st.markdown("""
-<style>
-    /* Metrik Kartları */
-    div[data-testid="stMetric"] {
-        background-color: #1e293b !important;
-        border: 1px solid #334155 !important;
-        border-left: 5px solid #3b82f6 !important;
-        border-radius: 12px;
-        padding: 15px;
-    }
-    
-    /* Sekme Tasarımı */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #1e293b !important;
-        border-radius: 12px;
-        padding: 5px;
-        border: 1px solid #334155;
-    }
-    .stTabs [aria-selected="true"] {
-        background: #2563eb !important;
-        color: #ffffff !important;
-        border-radius: 8px;
-    }
-    
-    /* Başlık Vurgusu */
-    .hero-title {
-        font-size: 2.2rem;
-        font-weight: 800;
-        color: #60a5fa;
-        margin-bottom: 0.2rem;
-    }
-    .hero-subtitle {
-        color: #94a3b8;
-        font-size: 1rem;
-        margin-bottom: 1.5rem;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Tab Yapısı
+tab1, tab2, tab3 = st.tabs(["📋 HBA & Geçiş Özel İşlem", "🔗 Genel DÜŞEYARA / Eşleştirme", "🛠️ Veri Temizleme & Makrolar"])
 
-# Başlık Alanı
-st.markdown('<div class="hero-title">⚡ AI Destekli Veri & Görsel Analiz Platformu</div>', unsafe_allow_html=True)
-st.markdown('<div class="hero-subtitle">Excel, CSV veya Fotoğraf/Ekran Görüntüsü yükleyin; Yapay Zekâ anında analiz etsin!</div>', unsafe_allow_html=True)
+# ==========================================
+# TAB 1: HBA & GEÇİŞ ÖZEL MODÜLÜ
+# ==========================================
+with tab1:
+    st.header("HBA ve Geçiş Dosyası Eşleştirme")
+    col1, col2 = st.subplots(2)
+    
+    with col1:
+        file_hba = st.file_uploader("HBA Dosyasını Yükleyin (xlsx)", type=["xlsx", "xls"], key="hba")
+    with col2:
+        file_gecis = st.file_uploader("Geçiş Dosyasını Yükleyin (xlsx)", type=["xlsx", "xls"], key="gecis")
 
-# Sohbet Geçmişi
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+    if file_hba and file_gecis:
+        try:
+            # Okuma İşlemleri
+            df_hba = pd.read_excel(file_hba, sheet_name="Sayfa1")
+            df_gecis = pd.read_excel(file_gecis, sheet_name="Rapor")
+            
+            # String Dönüşümü
+            df_hba['birimno'] = df_hba['birimno'].astype(str).str.strip()
+            df_gecis['BIRIMNO'] = df_gecis['BIRIMNO'].astype(str).str.strip()
+            
+            # Eşleştirilecek sütunlar var mı kontrolü
+            gecis_sub = df_gecis[['BIRIMNO', 'ANKET_DURUM', 'DETAY']].drop_duplicates(subset=['BIRIMNO'])
+            
+            # Merge (DÜŞEYARA Karşılığı)
+            df_merged = pd.merge(df_hba, gecis_sub, on='birimno', how='left', suffixes=('_eski', ''))
+            
+            if 'ANKET_DURUM_eski' in df_merged.columns:
+                df_merged.drop(columns=['ANKET_DURUM_eski'], inplace=True)
+            if 'DETAY_eski' in df_merged.columns:
+                df_merged.drop(columns=['DETAY_eski'], inplace=True)
 
-# Yan Menü (Sidebar)
-with st.sidebar:
-    st.image("https://img.icons8.com/fluent/96/brain.png", width=64)
-    st.title("⚙️ Kontrol Paneli")
-    st.markdown("---")
+            st.success("✅ Eşleştirme Başarıyla Tamamlandı!")
+            
+            # KPI Kartları
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Toplam Anket", len(df_merged))
+            c2.metric("Tamamlanan (TAM)", (df_merged['ANKET_DURUM'] == 'TAM').sum())
+            c3.metric("Kalan (KALAN)", (df_merged['ANKET_DURUM'] == 'KALAN').sum())
+            c4.metric("Boş / Diğer", df_merged['ANKET_DURUM'].isna().sum())
+
+            # Tablo Gösterimi
+            st.subheader("İşlenmiş Veri Önizleme")
+            st.dataframe(df_merged.head(10), use_container_width=True)
+
+            # Excel İndirme Butonu
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df_merged.to_excel(writer, sheet_name='Sayfa1', index=False)
+            
+            st.download_button(
+                label="📥 Tamamlanmış HBA Dosyasını İndir",
+                data=output.getvalue(),
+                file_name="HBA_ISLENMIS.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            st.error(f"Hata oluştu: {e}")
+
+# ==========================================
+# TAB 2: GENEL VLOOKUP / EŞLEŞTİRME MODÜLÜ
+# ==========================================
+with tab2:
+    st.header("Her Türlü İki Dosyayı Eşleştir (VLOOKUP / XLOOKUP)")
     
-    env_key = os.getenv("GEMINI_API_KEY", "")
-    api_key = st.text_input("🔑 Gemini API Key", value=env_key, type="password")
+    file_main = st.file_uploader("Ana Dosyayı Yükleyin (Veri eklenecek olan)", type=["xlsx", "csv"], key="m_file")
+    file_ref = st.file_uploader("Referans Dosyayı Yükleyin (Verinin alınacağı)", type=["xlsx", "csv"], key="r_file")
     
-    st.markdown("---")
-    st.subheader("📁 Veri Yükleme")
-    upload_type = st.radio("Dosya Türü Seçin:", ["📊 Tablo (Excel/CSV)", "🖼️ Görsel / Fotoğraf"], horizontal=True)
-    
-    uploaded_file = None
-    uploaded_image = None
-    
-    if upload_type == "📊 Tablo (Excel/CSV)":
-        uploaded_file = st.file_uploader("Bir Excel veya CSV dosyası seçin", type=["csv", "xlsx"])
-    else:
-        uploaded_image = st.file_uploader("Tablo/Fatura/Belge Fotoğrafı Yükleyin", type=["png", "jpg", "jpeg"])
+    if file_main and file_ref:
+        df_m = pd.read_excel(file_main) if file_main.name.endswith('xlsx') else pd.read_csv(file_main)
+        df_r = pd.read_excel(file_ref) if file_ref.name.endswith('xlsx') else pd.read_csv(file_ref)
         
-    st.markdown("---")
-    if st.button("🗑️ Chat Geçmişini Temizle", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
+        col_a, col_b = st.columns(2)
+        with col_a:
+            key_m = st.selectbox("Ana Dosyadaki Ortak Sütun (Anahtar)", df_m.columns)
+        with col_b:
+            key_r = st.selectbox("Referans Dosyadaki Ortak Sütun (Anahtar)", df_r.columns)
+            
+        target_cols = st.multiselect("Referans Dosyadan Aktarılacak Sütunları Seçin", [c for c in df_r.columns if c != key_r])
+        
+        if st.button("Eşleştirmeyi Yap"):
+            df_m[key_m] = df_m[key_m].astype(str).str.strip()
+            df_r[key_r] = df_r[key_r].astype(str).str.strip()
+            
+            sub_r = df_r[[key_r] + target_cols].drop_duplicates(subset=[key_r])
+            res = pd.merge(df_m, sub_r, left_on=key_m, right_on=key_r, how='left')
+            
+            st.dataframe(res.head())
+            
+            out_gen = io.BytesIO()
+            with pd.ExcelWriter(out_gen, engine='xlsxwriter') as writer:
+                res.to_excel(writer, index=False)
+                
+            st.download_button("📥 Birleştirilmiş Dosyayı İndir", out_gen.getvalue(), "Birlestirilmis_Veri.xlsx")
 
-# --- MOD 1: EXCEL / CSV VERİ ANALİZİ ---
-if uploaded_file is not None:
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
+# ==========================================
+# TAB 3: VERİ TEMİZLEME & MAKROLAR
+# ==========================================
+with tab3:
+    st.header("Otomatik Veri Temizleme Araçları")
+    file_clean = st.file_uploader("İşlem Yapılacak Dosyayı Yükleyin", type=["xlsx", "csv"], key="c_file")
+    
+    if file_clean:
+        df_c = pd.read_excel(file_clean) if file_clean.name.endswith('xlsx') else pd.read_csv(file_clean)
+        st.write("Orijinal Veri Boyutu:", df_c.shape)
         
-        # Üst Metrik Kartları
-        m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-        m_col1.metric("📄 Dosya Adı", uploaded_file.name[:14] + "..." if len(uploaded_file.name)>14 else uploaded_file.name)
-        m_col2.metric("📊 Toplam Satır", f"{df.shape[0]:,}")
-        m_col3.metric("📐 Toplam Sütun", df.shape[1])
-        m_col4.metric("⚠️ Boş Hücre Sayısı", df.isnull().sum().sum())
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Sekmeler
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "📋 Veri Önizleme & Temizleme", 
-            "🔍 Dosya Karşılaştırma & Eşleştirme",
-            "📂 Çoklu Dosya Birleştirici",
-            "🧮 AI Formül Sihirbazı",
-            "💬 AI Analiz Sohbeti & Hazır Komutlar"
+        op = st.selectbox("Yapılacak İşlemi Seçin", [
+            "Mükerrer Satırları Sil",
+            "Metin Sütunlarını Büyük Harfe Çevir",
+            "Boş Satırları Temizle",
+            "Özet Tablo (Pivot Table) Oluştur"
         ])
         
-        # TAB 1: VERİ ÖNİZLEME & TEMİZLEME
-        with tab1:
-            st.subheader("🔍 Akıllı Tablo İçi Arama")
-            search_term = st.text_input("Aramak istediğiniz terimi veya sayıyı girin:", placeholder="Örn: Aktif, İstanbul, 5000...")
-            
-            if search_term:
-                mask = np.column_stack([df[col].astype(str).str.contains(search_term, case=False, na=False) for col in df.columns])
-                filtered_df = df[mask.any(axis=1)]
-                st.info(f"Arama kriterine uyan **{len(filtered_df)}** kayıt listeleniyor.")
-                st.dataframe(filtered_df, use_container_width=True)
-            else:
-                st.dataframe(df, use_container_width=True)
-            
-            st.markdown("---")
-            st.subheader("🧹 Veri Temizleme Araçları")
-            col_clean1, col_clean2 = st.columns(2)
-            
-            with col_clean1:
-                st.markdown("**Eksik Değer İşlemleri**")
-                total_nulls = df.isnull().sum().sum()
-                st.write(f"Boş Değer Sayısı: `{total_nulls}`")
-                if total_nulls > 0:
-                    clean_option = st.selectbox("İşlem seçin:", ["Seçiniz...", "Eksik Satırları Sil", "Boş Yerlere 0 Yaz", "Boş Yerlere 'Bilinmiyor' Yaz"])
-                    if st.button("Eksik Verileri Temizle", type="primary"):
-                        if clean_option == "Eksik Satırları Sil":
-                            df = df.dropna()
-                            st.success("Boş satırlar silindi!")
-                        elif clean_option == "Boş Yerlere 0 Yaz":
-                            df = df.fillna(0)
-                            st.success("Boş yerlere 0 yazıldı!")
-                        elif clean_option == "Boş Yerlere 'Bilinmiyor' Yaz":
-                            df = df.fillna("Bilinmiyor")
-                            st.success("Boş yerler 'Bilinmiyor' olarak dolduruldu!")
-
-            with col_clean2:
-                st.markdown("**Yinelenen Kayıt İşlemleri**")
-                duplicates = df.duplicated().sum()
-                st.write(f"Tekrar Eden Satır Sayısı: `{duplicates}`")
-                if duplicates > 0:
-                    if st.button("Çift Kayıtları Temizle", type="primary"):
-                        df = df.drop_duplicates()
-                        st.success(f"{duplicates} kayıt silindi!")
-
-            st.markdown("---")
-            st.subheader("📥 Dışa Aktar")
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Temiz_Veri')
-            buffer.seek(0)
-            st.download_button(
-                label="📥 Güncel Veriyi Excel (.xlsx) Olarak İndir",
-                data=buffer,
-                file_name=f"temizlenmis_{uploaded_file.name}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary"
-            )
-
-        # TAB 2: EŞLEŞTİRME
-        with tab2:
-            st.subheader("🔍 Dosya Karşılaştırma & Eşleştirme")
-            compare_file = st.file_uploader("Karşılaştırılacak 2. Dosyayı Seçin", type=["csv", "xlsx"], key="comp_file")
-            
-            if compare_file is not None:
-                df2 = pd.read_csv(compare_file) if compare_file.name.endswith('.csv') else pd.read_excel(compare_file)
-                st.info(f"2. Dosya Yüklendi: **{compare_file.name}** ({df2.shape[0]} Satır)")
+        if st.button("İşlemi Uygula"):
+            if op == "Mükerrer Satırları Sil":
+                df_c = df_c.drop_duplicates()
+                st.success(f"Yeni Veri Boyutu: {df_c.shape}")
+            elif op == "Metin Sütunlarını Büyük Harfe Çevir":
+                for col in df_c.select_dtypes(include='object').columns:
+                    df_c[col] = df_c[col].astype(str).str.upper()
+                st.success("Tüm metinler büyük harfe dönüştürüldü.")
+            elif op == "Boş Satırları Temizle":
+                df_c = df_c.dropna(how='all')
+                st.success("Tamamen boş satırlar silindi.")
                 
-                col_m1, col_m2 = st.columns(2)
-                with col_m1:
-                    key1 = st.selectbox("1. Dosyadaki Anahtar Sütun:", df.columns.tolist())
-                with col_m2:
-                    key2 = st.selectbox("2. Dosyadaki Anahtar Sütun:", df2.columns.tolist())
-                
-                if st.button("Dosyaları Eşleştir", type="primary"):
-                    merged_df = pd.merge(df, df2, left_on=key1, right_on=key2, how="inner", suffixes=('_D1', '_D2'))
-                    st.success(f"🎉 Ortak olan **{len(merged_df)}** kayıt bulundu!")
-                    st.dataframe(merged_df, use_container_width=True)
-
-        # TAB 3: BİRLEŞTİRİCİ
-        with tab3:
-            st.subheader("📂 Çoklu Dosya Birleştirici")
-            multiple_files = st.file_uploader("Birleştirilecek Ek Dosyaları Seçin", type=["csv", "xlsx"], accept_multiple_files=True)
-            if multiple_files:
-                if st.button("Tüm Dosyaları Birleştir", type="primary"):
-                    combined_dfs = [df] + [pd.read_csv(mf) if mf.name.endswith('.csv') else pd.read_excel(mf) for mf in multiple_files]
-                    final_df = pd.concat(combined_dfs, ignore_index=True)
-                    st.success(f"🎉 Toplam {len(combined_dfs)} dosya birleştirildi! ({final_df.shape[0]} Satır)")
-                    st.dataframe(final_df, use_container_width=True)
-
-        # TAB 4: FORMÜL
-        with tab4:
-            st.subheader("🧮 AI Formül Oluşturucu & Açıklayıcı")
-            formula_type = st.radio("Formül Türü Seçin:", ["Excel Formülü", "DAX (Power BI)", "SQL Sorgusu"], horizontal=True)
-            formula_need = st.text_area("İhtiyacınızı tarif edin:", placeholder="Örn: A sütunu 'Aktif' ise B sütununu topla...")
+            st.dataframe(df_c.head())
             
-            if st.button("Formül Üret", type="primary"):
-                if formula_need and api_key:
-                    with st.spinner("Formül oluşturuluyor..."):
-                        try:
-                            client = genai.Client(api_key=api_key)
-                            f_prompt = f"Sen uzman bir veritabanı ve Excel uzmanısın. Kullanıcı {formula_type} cinsinden şu işlemi yapmak istiyor: '{formula_need}'. Sadece çalışan tam formülü ver ve 2 satırda mantığını açıkla."
-                            f_response = client.models.generate_content(model='gemini-2.5-flash', contents=f_prompt)
-                            st.markdown(f_response.text)
-                        except Exception as f_err:
-                            st.error(f"Hata: {f_err}")
-
-        # TAB 5: AI SOHBET
-        with tab5:
-            st.subheader("💬 Kesintisiz AI Analiz Sohbeti")
-            st.markdown("**💡 Hazır Analiz Komutları:**")
-            col_p1, col_p2, col_p3 = st.columns(3)
-            
-            quick_prompt = None
-            if col_p1.button("📌 Genel Veri Özeti Çıkar", use_container_width=True):
-                quick_prompt = "Bu verinin genel özetini ve öne çıkan noktalarını detaylıca analiz et."
-            if col_p2.button("⚠️ Hatalı/Şüpheli Verileri Bul", use_container_width=True):
-                quick_prompt = "Veri seti içinde tutarsız, eksik veya şüpheli görünen satırları ve sütunları tespit et."
-            if col_p3.button("🎯 Stratejik Öneriler Ver", use_container_width=True):
-                quick_prompt = "Bu verilere bakarak iş süreçlerimi geliştirmek için 5 tane stratejik öneri ver."
-
-            if not api_key:
-                st.warning("⚠️ Lütfen sol menüden Gemini API Key'inizi girin.")
-            else:
-                for message in st.session_state.messages:
-                    with st.chat_message(message["role"]):
-                        st.markdown(message["content"])
-
-                prompt = st.chat_input("Veriniz hakkında soru sorun...") or quick_prompt
-
-                if prompt:
-                    st.session_state.messages.append({"role": "user", "content": prompt})
-                    with st.chat_message("user"):
-                        st.markdown(prompt)
-
-                    with st.chat_message("assistant"):
-                        with st.spinner("Yapay Zekâ yanıt veriyor..."):
-                            try:
-                                client = genai.Client(api_key=api_key)
-                                data_sample = df.head(50).to_string()
-                                conversation_history = "".join([f"{msg['role']}: {msg['content']}\n" for msg in st.session_state.messages])
-
-                                full_prompt = f"""
-                                Sen uzman bir veri analistisin. Kullanıcı yüklediği veriler hakkında seninle sohbet yürütüyor.
-                                Önceki konuşmaları ve veriyi dikkate alarak cevap ver.
-
-                                Veri Örneği:
-                                {data_sample}
-
-                                Konuşma Geçmişi ve Son Soru:
-                                {conversation_history}
-                                """
-                                response = client.models.generate_content(model='gemini-2.5-flash', contents=full_prompt)
-                                st.markdown(response.text)
-                                st.session_state.messages.append({"role": "assistant", "content": response.text})
-                            except Exception as ai_err:
-                                st.error(f"Hata oluştu: {ai_err}")
-
-    except Exception as e:
-        st.error(f"Dosya okunurken bir hata oluştu: {e}")
-
-# --- MOD 2: GÖRSEL / FOTOĞRAF ANALİZİ ---
-elif uploaded_image is not None:
-    st.subheader("🖼️ Yapay Zekâ Görsel Analiz Modu")
-    
-    col_img1, col_img2 = st.columns([1, 1])
-    
-    with col_img1:
-        st.write("#### Yüklenen Görsel Önizlemesi:")
-        img = Image.open(uploaded_image)
-        st.image(img, use_container_width=True)
-        
-    with col_img2:
-        st.write("#### 🤖 Görsel İnceleme & Analiz:")
-        img_prompt = st.text_area("Görsel hakkında ne öğrenmek istersiniz?", value="Bu görseldeki verileri, tabloyu veya metinleri detaylıca incele ve Türkçe özet çıkar. Eğer bir tablo/fatura ise sayıları ve toplamları hesapla.")
-        
-        if st.button("Görseli Analiz Et", type="primary"):
-            if not api_key:
-                st.warning("⚠️ Lütfen sol menüden Gemini API Key'inizi girin.")
-            else:
-                with st.spinner("Yapay Zekâ görseli inceliyor..."):
-                    try:
-                        client = genai.Client(api_key=api_key)
-                        response = client.models.generate_content(
-                            model='gemini-2.5-flash',
-                            contents=[img, img_prompt]
-                        )
-                        st.markdown("### 💡 AI Görsel Analiz Sonucu:")
-                        st.markdown(response.text)
-                    except Exception as vision_err:
-                        st.error(f"Görsel analizi sırasında hata oluştu: {vision_err}")
-
-else:
-    st.info("👈 Lütfen başlamak için sol menüden bir Excel/CSV dosyası yükleyin veya bir Fotoğraf/Ekran Görüntüsü seçin.")
+            out_cln = io.BytesIO()
+            with pd.ExcelWriter(out_cln, engine='xlsxwriter') as writer:
+                df_c.to_excel(writer, index=False)
+            st.download_button("📥 Temizlenmiş Dosyayı İndir", out_cln.getvalue(), "Temizlenmis_Veri.xlsx")

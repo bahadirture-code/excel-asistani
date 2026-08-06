@@ -1,7 +1,5 @@
 streamlit
 pandas
-numpy
 openpyxl
-pillow
-python-dotenv
-google-genai
+xlsxwriter
+plotly
