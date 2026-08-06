@@ -3,9 +3,14 @@ import pandas as pd
 import io
 import plotly.express as px
 from difflib import SequenceMatcher
+import ydata_profiling
+from streamlit_pandas_profiling import st_profile_report
 
 st.set_page_config(page_title="Excel & Veri İşleme", layout="wide", page_icon="⚡")
 
+# ==========================
+# CACHE OPTİMİZASYONU
+# ==========================
 @st.cache_data(ttl=3600)
 def load_file(file_bytes, filename):
     try:
@@ -50,21 +55,21 @@ def export_file(df, format_type="xlsx", filename="output"):
         return None, None
 
 st.title("⚡ Excel & Veri İşleme Platformu")
-st.markdown("**Ücretsiz** - Merge, Temizleme, Groq AI")
+st.markdown("**Ücretsiz** - Merge, Temizleme, Profil Analizi, Groq AI")
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📋 Excel Eşleştirme", 
     "🔗 DÜŞEYARA", 
     "🛠️ Temizleme",
+    "📑 Veri Profili",
     "🤖 Groq AI"
 ])
 
 # ==========================================
-# TAB 1: EXCEL EŞLEŞTİRME
+# TAB 1: EXCEL EŞLEŞTİRME + GRAFİK
 # ==========================================
 with tab1:
     st.header("📋 Excel Eşleştirme")
-    
     col1, col2 = st.columns(2)
     with col1:
         file_ana = st.file_uploader("Dosya 1", type=["xlsx", "csv"], key="f1")
@@ -90,7 +95,14 @@ with tab1:
                 if df_merged is not None:
                     st.success("✅ Tamamlandı!")
                     st.dataframe(df_merged.head(20))
-                    
+
+                    # 📊 Grafik Görselleştirme
+                    st.subheader("📊 Görselleştirme")
+                    num_cols = df_merged.select_dtypes(include='number').columns
+                    if len(num_cols) >= 2:
+                        fig = px.scatter(df_merged, x=num_cols[0], y=num_cols[1], color=k_ana)
+                        st.plotly_chart(fig, use_container_width=True)
+
                     c1, c2 = st.columns(2)
                     with c1:
                         data, fname = export_file(df_merged, "xlsx", "sonuc")
@@ -106,7 +118,6 @@ with tab1:
 # ==========================================
 with tab2:
     st.header("🔗 DÜŞEYARA")
-    
     file_main = st.file_uploader("Ana Dosya", type=["xlsx", "csv"], key="main")
     file_ref = st.file_uploader("Referans Dosya", type=["xlsx", "csv"], key="ref")
     
@@ -115,14 +126,11 @@ with tab2:
         df_r = load_file(file_ref.read(), file_ref.name)
         
         if df_m is not None and df_r is not None:
-            c1, c2 = st.columns(2)
-            with c1:
-                key_m = st.selectbox("Ana Dosya Sütunu", df_m.columns)
-            with c2:
-                similar = find_similar_columns(key_m, df_r.columns)
-                key_r_default = similar[0][0] if similar else df_r.columns[0]
-                key_r = st.selectbox("Referans Sütunu", df_r.columns,
-                                    index=list(df_r.columns).index(key_r_default))
+            key_m = st.selectbox("Ana Dosya Sütunu", df_m.columns)
+            similar = find_similar_columns(key_m, df_r.columns)
+            key_r_default = similar[0][0] if similar else df_r.columns[0]
+            key_r = st.selectbox("Referans Sütunu", df_r.columns,
+                                index=list(df_r.columns).index(key_r_default))
                 
             target_cols = st.multiselect("Çekilecek Sütunlar", 
                                         [c for c in df_r.columns if c != key_r])
@@ -130,39 +138,27 @@ with tab2:
             if st.button("🔗 Birleştir"):
                 sub_r = df_r[[key_r] + target_cols].drop_duplicates(subset=[key_r])
                 res = safe_merge(df_m.copy(), sub_r, key_m, key_r, how='left')
-                
                 if res is not None:
                     st.dataframe(res.head(20))
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        data, fname = export_file(res, "xlsx", "birlestirilmis")
-                        if data:
-                            st.download_button("📊 Excel", data, fname, key="d1")
-                    with c2:
-                        data, fname = export_file(res, "csv", "birlestirilmis")
-                        if data:
-                            st.download_button("📄 CSV", data, fname, key="d2")
 
 # ==========================================
-# TAB 3: TEMİZLEME
+# TAB 3: GELİŞMİŞ TEMİZLEME
 # ==========================================
 with tab3:
     st.header("🛠️ Veri Temizleme")
-    
     file_clean = st.file_uploader("Temizlenecek Dosya", type=["xlsx", "csv"], key="clean")
     
     if file_clean:
         df_c = load_file(file_clean.read(), file_clean.name)
-        
         if df_c is not None:
-            st.write(f"Boyut: {len(df_c)} satır × {len(df_c.columns)} sütun")
-            
             op = st.selectbox("İşlem", [
                 "Mükerrer Satırları Sil",
                 "Belirli Sütuna Göre Mükerrerleri Sil",
                 "Boşlukları Temizle (TRIM)",
                 "BÜYÜK HARFE Çevir",
-                "Boş Satırları Sil"
+                "Boş Satırları Sil",
+                "Özel Karakterleri Sil",
+                "Tarih Formatlarını Standartlaştır"
             ])
             
             selected_col = None
@@ -182,95 +178,8 @@ with tab3:
                         df_c[col] = df_c[col].astype(str).str.upper()
                 elif op == "Boş Satırları Sil":
                     df_c = df_c.dropna(how='all')
-                    
-                st.success("✅ Tamamlandı!")
-                st.dataframe(df_c.head(15))
-                
-                c1, c2 = st.columns(2)
-                with c1:
-                    data, fname = export_file(df_c, "xlsx", "temizlenmis")
-                    if data:
-                        st.download_button("📊 Excel", data, fname, key="c1")
-                with c2:
-                    data, fname = export_file(df_c, "csv", "temizlenmis")
-                    if data:
-                        st.download_button("📄 CSV", data, fname, key="c2")
-
-# ==========================================
-# TAB 4: GROQ AI
-# ==========================================
-with tab4:
-    st.header("🎉 Groq AI (Ücretsiz)")
-    st.info("📌 https://console.groq.com/keys adresinden API key al")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        f1 = st.file_uploader("Dosya 1 (df1)", type=["xlsx", "csv"], key="ai1")
-    with c2:
-        f2 = st.file_uploader("Dosya 2 (df2)", type=["xlsx", "csv"], key="ai2")
-        
-    df1 = load_file(f1.read(), f1.name) if f1 else None
-    df2 = load_file(f2.read(), f2.name) if f2 else None
-    
-    if df1 is not None:
-        st.write("**df1 Sütunları:**", list(df1.columns))
-        if df2 is not None:
-            st.write("**df2 Sütunları:**", list(df2.columns))
-            
-        user_prompt = st.text_area("Komut:")
-        
-        if st.button("🚀 Çalıştır"):
-            api_key = st.secrets.get("GROQ_API_KEY")
-            if not api_key:
-                st.error("❌ GROQ_API_KEY eksik. Secrets'a ekle.")
-            elif not user_prompt.strip():
-                st.warning("Komut yazınız.")
-            else:
-                try:
-                    with st.spinner("⏳ Çalışıyor..."):
-                        from groq import Groq
-                        client = Groq(api_key=api_key)
-                        
-                        sys_msg = f"""Python Pandas uzmanısın.
-df1: {list(df1.columns)}{f", df2: {list(df2.columns)}" if df2 else ""}
-Sadece çalışan kod döndür. Sonucu result_df'e ata.
-```python ... ``` şeklinde gönder."""
-                        
-                        response = client.chat.completions.create(
-                            model="mixtral-8x7b-32768",
-                            messages=[
-                                {"role": "system", "content": sys_msg},
-                                {"role": "user", "content": user_prompt}
-                            ],
-                            temperature=0.3,
-                            max_tokens=1500
-                        )
-                        
-                        code_res = response.choices[0].message.content
-                        code_clean = code_res.split("```python")[1].split("```")[0].strip() if "```python" in code_res else code_res.strip()
-                        
-                        local_vars = {"df1": df1.copy(), "df2": df2.copy() if df2 else None, "pd": pd}
-                        exec(code_clean, {}, local_vars)
-                        result_df = local_vars.get("result_df")
-                        
-                        if result_df is not None:
-                            st.success("✅ Bitti!")
-                            st.dataframe(result_df.head(20))
-                            
-                            with st.expander("🛠️ Kod"):
-                                st.code(code_clean, language="python")
-                            
-                            c1, c2 = st.columns(2)
-                            with c1:
-                                data, fname = export_file(result_df, "xlsx", "groq_sonuc")
-                                if data:
-                                    st.download_button("📊 Excel", data, fname, key="g1")
-                            with c2:
-                                data, fname = export_file(result_df, "csv", "groq_sonuc")
-                                if data:
-                                    st.download_button("📄 CSV", data, fname, key="g2")
-                        else:
-                            st.error("❌ Kod başarısız.")
-                            
-                except Exception as e:
-                    st.error(f"❌ Hata: {str(e)[:100]}")
+                elif op == "Özel Karakterleri Sil":
+                    for col in df_c.select_dtypes(include='object').columns:
+                        df_c[col] = df_c[col].str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
+                elif op == "Tarih Formatlarını Standartlaştır":
+                    for col in df_c.select_dtypes(include
