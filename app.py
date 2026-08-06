@@ -183,4 +183,4 @@ with tab3:
 # ==========================================
 with tab4:
     st.header("📑 Veri Profili")
-    file_profile = st.file_uploader("Profil Analizi Dosyası", type=["
+    file_profile = st.file_uploader("Profil Analizi Dosyası", type=["xlsx
