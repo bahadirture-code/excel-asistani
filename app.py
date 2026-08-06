@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import io
 import json
-import re
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -111,39 +110,8 @@ def export_file(df, format_type="xlsx", filename="veri"):
         st.error(f"❌ Dışa aktarma hatası: {e}")
         return None, None
 
-def generate_plots(df):
-    figs = []
-    num_cols = df.select_dtypes(include=['number']).columns
-    for col in num_cols[:3]:
-        if df[col].notna().sum() > 0:
-            try:
-                fig = px.histogram(df, x=col, title=f"{col} Dağılımı", color_discrete_sequence=['#3b82f6'])
-                figs.append(fig)
-            except:
-                pass
-    if len(num_cols) >= 2 and df[num_cols].shape[0] > 1:
-        try:
-            corr = df[num_cols].corr()
-            fig = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.columns, colorscale='RdBu_r'))
-            fig.update_layout(title="Korelasyon Matrisi")
-            figs.append(fig)
-        except:
-            pass
-    cat_cols = df.select_dtypes(include=['object', 'category', 'string']).columns
-    for col in cat_cols[:2]:
-        if df[col].notna().sum() > 0:
-            try:
-                vc = df[col].value_counts().reset_index()
-                vc.columns = ['kategori', 'sayi']
-                fig = px.bar(vc, x='kategori', y='sayi', title=f"{col} Dağılımı",
-                             color_discrete_sequence=['#10b981'])
-                figs.append(fig)
-            except:
-                pass
-    return figs
-
 # ==========================
-# OTURUM DURUMU
+# OTURUM DURUMU (SESSION STATE)
 # ==========================
 if 'file_data' not in st.session_state:
     st.session_state.file_data = {}
@@ -151,6 +119,8 @@ if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'processing' not in st.session_state:
     st.session_state.processing = False
+if 'last_result_df' not in st.session_state:
+    st.session_state.last_result_df = None
 
 st.title("🤖 AI Veri Asistanı")
 st.markdown("**Dosyaları yükleyin, doğal dilde komut yazın, AI işlemi yapsın.**")
@@ -175,7 +145,6 @@ with st.container():
                 if file.name.lower().endswith('.xlsx'):
                     sheets = get_excel_sheets(file_bytes)
                     if sheets:
-                        # Eğer Sayfa1 varsa doğrudan onu seç
                         selected_sheet = "Sayfa1" if "Sayfa1" in sheets else sheets[0]
                 st.session_state.file_data[file.name] = {
                     'bytes': file_bytes,
@@ -200,6 +169,7 @@ if st.session_state.file_data:
                 with col2:
                     if st.button("🗑️", key=f"del_{name}"):
                         del st.session_state.file_data[name]
+                        st.session_state.last_result_df = None
                         st.rerun()
                 if data['sheets']:
                     current_sheet = data['selected_sheet'] if data['selected_sheet'] else data['sheets'][0]
@@ -224,21 +194,6 @@ if st.session_state.file_data:
                     st.caption(f"{df.shape[0]} satır, {df.shape[1]} sütun")
                     with st.expander("🔍 Önizleme"):
                         st.dataframe(df.head(5), use_container_width=True)
-                    with st.expander("📊 Özet İstatistikler"):
-                        num_cols = df.select_dtypes(include=['number']).columns
-                        if len(num_cols) > 0:
-                            st.dataframe(df[num_cols].describe())
-                        else:
-                            st.info("Sayısal sütun yok")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        excel_data, excel_fname = export_file(df, "xlsx", name.replace('.', '_'))
-                        if excel_data:
-                            st.download_button("📊 Güncel Excel'i İndir", excel_data, excel_fname, key=f"excel_{name}")
-                    with col2:
-                        csv_data, csv_fname = export_file(df, "csv", name.replace('.', '_'))
-                        if csv_data:
-                            st.download_button("📄 CSV İndir", csv_data, csv_fname, key=f"csv_{name}")
                 else:
                     st.warning("⚠️ Veri yüklenemedi")
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -256,7 +211,7 @@ else:
     if not available_dfs:
         st.info("Lütfen önce yukarıdan dosya yükleyin ve bir sayfa seçin.")
     else:
-        # Sohbet geçmişi gösterimi
+        # Sohbet geçmişini çizdir
         for msg in st.session_state.messages:
             role_class = "user" if msg["role"] == "user" else "assistant"
             st.markdown(f'''
@@ -266,7 +221,24 @@ else:
                 </div>
             ''', unsafe_allow_html=True)
 
-        # Kullanıcı girişi
+        # AI tarafından üretilen en son başarılı sonucu ekranda ve indirme butonunda göster
+        if st.session_state.last_result_df is not None:
+            st.markdown("### 🎯 Son AI İşlem Çıktısı (Tam Dosya)")
+            res_df = st.session_state.last_result_df
+            st.caption(f"Toplam {res_df.shape[0]} satır ve {res_df.shape[1]} sütun hazır.")
+            st.dataframe(res_df.head(10), use_container_width=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                excel_data, excel_fname = export_file(res_df, "xlsx", "AI_ISLENMIS_SONUC")
+                if excel_data:
+                    st.download_button("📊 İşlenmiş Tam Excel'i İndir", excel_data, excel_fname, key="download_excel_result")
+            with col2:
+                csv_data, csv_fname = export_file(res_df, "csv", "AI_ISLENMIS_SONUC")
+                if csv_data:
+                    st.download_button("📄 İşlenmiş CSV İndir", csv_data, csv_fname, key="download_csv_result")
+
+        # Kullanıcı komut girişi
         prompt = st.chat_input("Ne yapmak istersiniz? (Türkçe, doğal dil)")
         if prompt and not st.session_state.processing:
             st.session_state.processing = True
@@ -280,9 +252,7 @@ else:
 
                 client = Groq(api_key=api_key)
 
-                # ============================================================
-                # ÖZEL SİSTEM MESAJI
-                # ============================================================
+                # Prompt için mevcut yüklemelerin özetini çıkar
                 df_desc = []
                 for i, (name, data) in enumerate(st.session_state.file_data.items(), start=1):
                     df = data['df']
@@ -298,11 +268,11 @@ else:
 Mevcut Yüklü DataFrame'ler:
 {df_list_str}
 
-KRİTİK KODLAMA KURALLARI:
-1. ANA DOSYANIN TÜM SÜTUNLARINI KORU (ASLA MİKRO DF DÖNME):
-   - Hedef dosyanın tüm sütun yapısını korumalısın.
-   - Bilgi aktarımı yaparken `.map()` yöntemini tercih et.
-   - Örnek Kural Yapısı:
+ÇOK ÖNEMLİ KODLAMA KURALLARI:
+1. ANA DOSYANIN TÜM SÜTUNLARINI KORU (KIRPMA YAPMA):
+   - Hedef dosya hangisiyse onun tüm sütun yapısını (örneğin 17 sütunun hepsini) korumalısın.
+   - Diğer dosyadan bilgi aktarırken `.map()` yöntemini kullan.
+   - ÖRNEK KOD YAPISI:
      df1['birimno'] = df1['birimno'].astype(str)
      df2['BIRIMNO'] = df2['BIRIMNO'].astype(str)
      durum_map = dict(zip(df2['BIRIMNO'], df2['ANKET_DURUM']))
@@ -311,12 +281,11 @@ KRİTİK KODLAMA KURALLARI:
      df1['DETAY'] = df1['birimno'].map(detay_map)
      result_df = df1
 
-2. EŞLEŞTİRME ÖNCESİ TİP DÖNÜŞÜMÜ:
-   - `birimno`, `BIRIMNO` veya ID sütunlarını işlem yapmadan önce MUTLAKA `.astype(str)` ile metne dönüştür.
+2. VERİ TİPİ DÖNÜŞÜMÜ:
+   - `birimno` veya `BIRIMNO` sütunlarını işlem öncesi MUTLAKA `.astype(str)` ile metne dönüştür.
 
 3. ÇIKTI ŞARTLARI:
-   - Nihai sonucu MUTLAKA `result_df` değişkenine ata.
-   - Eğer hedef dosya `df1` ise ve veri `df1` üzerine yazıldıysa `target_index = 1` değerini de koda ekle.
+   - Oluşan güncel Dataframe'i KESİNLİKLE `result_df` isimli değişkene ata.
 
 4. YANIT FORMATI:
    Yanıtını YALNIZCA aşağıdaki JSON formatında ver:
@@ -360,22 +329,17 @@ Eğer durum net değilse:
                     explanation = data.get("explanation", "İşlem tamamlandı")
                     try:
                         local_vars = {}
-                        file_keys = list(st.session_state.file_data.keys())
                         for i, (name, data_obj) in enumerate(st.session_state.file_data.items(), start=1):
                             if data_obj['df'] is not None:
                                 local_vars[f"df{i}"] = data_obj['df'].copy()
                         local_vars["pd"] = pd
-                        local_vars["target_index"] = 1
                         
                         exec(code, {}, local_vars)
                         result_df = local_vars.get("result_df")
-                        target_idx = local_vars.get("target_index", 1) - 1
                         
                         if result_df is not None and isinstance(result_df, pd.DataFrame):
-                            # KALICI KAYIT: Üretilen güncel tabloyu yüklenen dosyanın içine yaz
-                            target_key = file_keys[target_idx] if target_idx < len(file_keys) else file_keys[0]
-                            st.session_state.file_data[target_key]['df'] = result_df
-                            
+                            # Kalıcı state'e atayarak kaybolmasını önlüyoruz
+                            st.session_state.last_result_df = result_df
                             st.session_state.messages.append({"role": "assistant", "content": f"✅ {explanation}"})
                             st.session_state.processing = False
                             st.rerun()
@@ -398,4 +362,5 @@ Eğer durum net değilse:
 
     if st.button("🗑️ Sohbet Geçmişini Temizle"):
         st.session_state.messages = []
+        st.session_state.last_result_df = None
         st.rerun()
