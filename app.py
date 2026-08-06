@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 import json
+import re
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -112,7 +113,6 @@ def export_file(df, format_type="xlsx", filename="veri"):
 
 def generate_plots(df):
     figs = []
-    # Sayısal sütunlar
     num_cols = df.select_dtypes(include=['number']).columns
     for col in num_cols[:3]:
         if df[col].notna().sum() > 0:
@@ -121,7 +121,6 @@ def generate_plots(df):
                 figs.append(fig)
             except:
                 pass
-    # Korelasyon
     if len(num_cols) >= 2 and df[num_cols].shape[0] > 1:
         try:
             corr = df[num_cols].corr()
@@ -130,7 +129,6 @@ def generate_plots(df):
             figs.append(fig)
         except:
             pass
-    # Kategorik sütunlar (düzeltilmiş)
     cat_cols = df.select_dtypes(include=['object', 'category', 'string']).columns
     for col in cat_cols[:2]:
         if df[col].notna().sum() > 0:
@@ -143,6 +141,39 @@ def generate_plots(df):
             except:
                 pass
     return figs
+
+def preprocess_prompt(prompt, file_names):
+    """
+    Kullanıcı komutundaki '1. dosya', '2. dosya', 'birinci dosya', 'ikinci dosya'
+    gibi ifadeleri sırasıyla df1, df2 ile değiştirir.
+    Ayrıca dosya adlarını da (eğer listedeyse) df1/df2 ile değiştirir.
+    """
+    # Dosya adlarını sırasıyla df1, df2 ile eşleştir
+    replacements = {}
+    for i, name in enumerate(file_names, start=1):
+        replacements[name] = f"df{i}"
+        # Ayrıca "1. dosya" -> df1, "2. dosya" -> df2
+        replacements[f"{i}. dosya"] = f"df{i}"
+        replacements[f"{i}.dosya"] = f"df{i}"
+        replacements[f"birinci dosya" if i==1 else "ikinci dosya"] = f"df{i}"  # basitçe
+    # Türkçe sayılar
+    replacements["birinci dosya"] = "df1"
+    replacements["ikinci dosya"] = "df2"
+    replacements["1. dosyadaki"] = "df1"
+    replacements["2. dosyadaki"] = "df2"
+    replacements["1. dosyaya"] = "df1"
+    replacements["2. dosyaya"] = "df2"
+    replacements["ana dosya"] = "df1"
+    replacements["referans dosyası"] = "df2"
+
+    # Büyük-küçük harf duyarsız değiştirme için
+    for old, new in replacements.items():
+        prompt = prompt.replace(old, new)
+    # Regex ile değiştirme (opsiyonel)
+    # Örnek: "1. dosya" -> df1
+    prompt = re.sub(r'\b1\.\s*dosya\b', 'df1', prompt, flags=re.IGNORECASE)
+    prompt = re.sub(r'\b2\.\s*dosya\b', 'df2', prompt, flags=re.IGNORECASE)
+    return prompt
 
 # ==========================
 # OTURUM DURUMU
@@ -202,7 +233,6 @@ if st.session_state.file_data:
                     if st.button("🗑️", key=f"del_{name}"):
                         del st.session_state.file_data[name]
                         st.rerun()
-                # Sayfa seçimi
                 if data['sheets']:
                     current_sheet = data['selected_sheet'] if data['selected_sheet'] else data['sheets'][0]
                     selected_sheet = st.selectbox(
@@ -280,7 +310,11 @@ else:
         if prompt and not st.session_state.processing:
             st.session_state.processing = True
             try:
-                st.session_state.messages.append({"role": "user", "content": prompt})
+                # Kullanıcı komutunu ön işleme
+                file_names = list(available_dfs.keys())
+                processed_prompt = preprocess_prompt(prompt, file_names)
+                st.session_state.messages.append({"role": "user", "content": processed_prompt})
+
                 api_key = st.secrets.get("GROQ_API_KEY")
                 if not api_key:
                     st.error("❌ GROQ_API_KEY eksik")
@@ -289,18 +323,18 @@ else:
 
                 client = Groq(api_key=api_key)
 
-                # Sistem mesajı (GÜNCELLENDİ)
+                # Sistem mesajı (çok net)
                 df_list_str = ", ".join([f"{k}: {list(v.columns)}" for k, v in available_dfs.items()])
                 sys_msg = f"""Python/Pandas uzmanısın. Kullanıcının komutunu analiz et.
 Mevcut DataFrame'ler:
 {df_list_str}
 
-**ÖNEMLİ:** Kullanıcı "1. dosya", "2. dosya", "ana dosya", "referans dosyası" gibi tanımlamalar yapabilir.
-Bu durumda:
-- 1. dosya → df1
-- 2. dosya → df2
-olarak kabul et. **Kesinlikle dosya adlarını (örneğin 'HBA_AGUSTOS_2026D') değişken olarak kullanma.**
-Sadece df1, df2, ... değişkenlerini kullan.
+**KULLANICI KOMUTUNDA GEÇEN 'df1', 'df2' DEĞİŞKENLERİNİ DOĞRUDAN KULLAN.**
+- df1 = {file_names[0] if len(file_names)>0 else ''}
+- df2 = {file_names[1] if len(file_names)>1 else ''}
+
+**KULLANICI DOSYA ADLARINI DEĞİL, SADECE df1, df2, ... DEĞİŞKENLERİNİ KULLANACAK.**
+**ASLA DOSYA ADLARINI DEĞİŞKEN OLARAK KULLANMA!**
 
 Eğer komut net değilse veya hangi dosyayı kastettiğini anlamadıysan, JSON formatında:
 {{"status": "need_clarification", "question": "Açıklayıcı soru"}}
@@ -317,7 +351,7 @@ Sadece JSON döndür, başka metin yazma.
                     model="llama-3.3-70b-versatile",
                     messages=[
                         {"role": "system", "content": sys_msg},
-                        {"role": "user", "content": f"Kullanıcı komutu: {prompt}"}
+                        {"role": "user", "content": f"Kullanıcı komutu: {processed_prompt}"}
                     ],
                     temperature=0.3,
                     max_tokens=2000,
@@ -340,7 +374,10 @@ Sadece JSON döndür, başka metin yazma.
                     code = data.get("code")
                     explanation = data.get("explanation", "İşlem tamamlandı")
                     try:
-                        local_vars = {k: v.copy() for k, v in available_dfs.items()}
+                        local_vars = {}
+                        # df1, df2, ... olarak atama
+                        for i, (name, df) in enumerate(available_dfs.items(), start=1):
+                            local_vars[f"df{i}"] = df.copy()
                         local_vars["pd"] = pd
                         exec(code, {}, local_vars)
                         result_df = local_vars.get("result_df")
@@ -349,7 +386,6 @@ Sadece JSON döndür, başka metin yazma.
                             with st.chat_message("assistant"):
                                 st.write(f"**{explanation}**")
                                 st.dataframe(result_df.head(10), width='stretch')
-                                # İndirme
                                 col1, col2 = st.columns(2)
                                 with col1:
                                     excel_data, excel_fname = export_file(result_df, "xlsx", "ai_sonuc")
@@ -359,7 +395,6 @@ Sadece JSON döndür, başka metin yazma.
                                     csv_data, csv_fname = export_file(result_df, "csv", "ai_sonuc")
                                     if csv_data:
                                         st.download_button("📄 CSV İndir", csv_data, csv_fname, key="ai_csv")
-                                # Grafik
                                 num_cols = result_df.select_dtypes(include=['number']).columns
                                 if len(num_cols) >= 1 and len(result_df) > 0:
                                     st.caption("📈 Otomatik Grafik")
