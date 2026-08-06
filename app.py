@@ -14,6 +14,9 @@ except Exception:
 
 st.set_page_config(page_title="AI Veri Asistanı", layout="wide", page_icon="🤖")
 
+# ==========================
+# ÖZEL CSS (TEMA)
+# ==========================
 st.markdown("""
 <style>
     .main { background-color: #f8fafc; }
@@ -73,6 +76,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ==========================
+# YARDIMCI FONKSİYONLAR
+# ==========================
 @st.cache_data(ttl=3600)
 def load_file(file_bytes, filename, sheet_name=0):
     try:
@@ -136,36 +142,9 @@ def generate_plots(df):
                 pass
     return figs
 
-def preprocess_prompt(prompt, file_names):
-    """
-    Kullanıcı komutundaki dosya tanımlarını df1, df2'ye çevirir.
-    """
-    replacements = {}
-    # Dosya adlarını sırasıyla df1, df2 ile eşleştir
-    for i, name in enumerate(file_names, start=1):
-        replacements[name] = f"df{i}"
-        replacements[f"{i}. dosya"] = f"df{i}"
-        replacements[f"{i}.dosya"] = f"df{i}"
-        if i == 1:
-            replacements["birinci dosya"] = "df1"
-            replacements["1. dosyadaki"] = "df1"
-            replacements["1. dosyaya"] = "df1"
-            replacements["ana dosya"] = "df1"
-            replacements["HBA"] = "df1"  # Özel tanım
-        elif i == 2:
-            replacements["ikinci dosya"] = "df2"
-            replacements["2. dosyadaki"] = "df2"
-            replacements["2. dosyaya"] = "df2"
-            replacements["geçiş dosyası"] = "df2"  # Özel tanım
-            replacements["referans dosyası"] = "df2"
-    # Büyük-küçük harf duyarsız değiştirme
-    for old, new in replacements.items():
-        prompt = prompt.replace(old, new)
-    # Regex ile değiştirme
-    prompt = re.sub(r'\b1\.\s*dosya\b', 'df1', prompt, flags=re.IGNORECASE)
-    prompt = re.sub(r'\b2\.\s*dosya\b', 'df2', prompt, flags=re.IGNORECASE)
-    return prompt
-
+# ==========================
+# OTURUM DURUMU
+# ==========================
 if 'file_data' not in st.session_state:
     st.session_state.file_data = {}
 if 'messages' not in st.session_state:
@@ -174,7 +153,7 @@ if 'processing' not in st.session_state:
     st.session_state.processing = False
 
 st.title("🤖 AI Veri Asistanı")
-st.markdown("**Hiç Excel bilmeyenler için doğal dil ile veri işleme**")
+st.markdown("**Dosyaları yükleyin, doğal dilde komut yazın, AI işlemi yapsın.**")
 
 # ==========================
 # DOSYA YÜKLEME
@@ -182,7 +161,7 @@ st.markdown("**Hiç Excel bilmeyenler için doğal dil ile veri işleme**")
 with st.container():
     st.subheader("📂 Dosya Yükleme")
     uploaded_files = st.file_uploader(
-        "Dosyaları sürükleyin veya seçin",
+        "Dosyaları sürükleyin veya seçin (Excel/CSV)",
         type=["xlsx", "csv"],
         accept_multiple_files=True,
         key="file_uploader"
@@ -293,14 +272,12 @@ else:
                 </div>
             ''', unsafe_allow_html=True)
 
-        prompt = st.chat_input("Ne yapmak istersiniz? (ör: 'geçiş dosyasındaki anket durum ve detayları, birim numarasına göre HBA dosyasına ekle')")
+        # Kullanıcı girişi
+        prompt = st.chat_input("Ne yapmak istersiniz? (Türkçe, doğal dil)")
         if prompt and not st.session_state.processing:
             st.session_state.processing = True
             try:
-                file_names = list(available_dfs.keys())
-                processed_prompt = preprocess_prompt(prompt, file_names)
-                st.session_state.messages.append({"role": "user", "content": processed_prompt})
-
+                st.session_state.messages.append({"role": "user", "content": prompt})
                 api_key = st.secrets.get("GROQ_API_KEY")
                 if not api_key:
                     st.error("❌ GROQ_API_KEY eksik")
@@ -309,34 +286,42 @@ else:
 
                 client = Groq(api_key=api_key)
 
-                df_list_str = ", ".join([f"{k}: {list(v.columns)}" for k, v in available_dfs.items()])
-                sys_msg = f"""Python/Pandas uzmanısın. Kullanıcının komutunu analiz et.
+                # ============================================================
+                # GELİŞMİŞ SİSTEM MESAJI (TÜM DOSYA VE SÜTUN BİLGİLERİYLE)
+                # ============================================================
+                # Kullanıcının hangi dosyayı kastettiğini anlamak için dosya isimleri ve sütunları
+                df_desc = []
+                for i, (name, df) in enumerate(available_dfs.items(), start=1):
+                    cols = list(df.columns)
+                    df_desc.append(f"df{i} (dosya: '{name}', sütunlar: {cols})")
+                df_list_str = "\n".join(df_desc)
+
+                sys_msg = f"""Sen bir veri işleme asistanısın. Kullanıcı Türkçe doğal dilde ne istediğini söyleyecek.
+
 Mevcut DataFrame'ler:
 {df_list_str}
 
-**KULLANICI KOMUTUNDA GEÇEN 'df1', 'df2' DEĞİŞKENLERİNİ DOĞRUDAN KULLAN.**
-- df1 = {file_names[0] if len(file_names)>0 else ''}
-- df2 = {file_names[1] if len(file_names)>1 else ''}
+ÖNEMLİ KURALLAR:
+1. Kullanıcı dosya ismi vermezse, söylediği işlemi anlamaya çalış. Örneğin "birim numaraları üzerinden anket durum ve detayları çek" derse, hangi dosyada "birim numarası" var, hangisinde "anket durum" ve "detay" var, bunları sütun isimlerinden bul.
+2. Kullanıcı "şu dosyadaki" diyerek bir dosya ismi verirse, o dosyayı kullan. Dosya isimleri exact match olmak zorunda değil, yakın eşleşme yapabilirsin (örnek: "geçiş" -> "geçiş.xlsx").
+3. Hangi sütunun hangi dosyada olduğunu sütun listesinden kontrol et.
+4. Eğer komut net değilse veya birden fazla olasılık varsa, kullanıcıya soru sor (JSON formatında).
+5. Sonuçta oluşan DataFrame'i 'result_df' değişkenine ata.
+6. Sadece çalışan Pandas kodu döndür, kod bloğunu ```python ``` etiketleri arasına yaz.
 
-**KULLANICI DOSYA ADLARINI DEĞİL, SADECE df1, df2, ... DEĞİŞKENLERİNİ KULLANACAK.**
-**ASLA DOSYA ADLARINI DEĞİŞKEN OLARAK KULLANMA!**
+Örnek komut ve çıktı:
+Kullanıcı: "birim numaraları üzerinden geçiş dosyasındaki anket durum ve detayları hba dosyasına çek"
+- df1 = hba dosyası (içinde 'birimno' sütunu var)
+- df2 = geçiş dosyası (içinde 'BIRIMNO', 'ANKET_DURUM', 'DETAY' sütunları var)
+- Kod: df1 ve df2'yi join yap, ANKET_DURUM ve DETAY'ı getir, sonucu result_df olarak kaydet.
 
-Eğer komut net değilse veya hangi dosyayı kastettiğini anlamadıysan, JSON formatında:
-{{"status": "need_clarification", "question": "Açıklayıcı soru"}}
-döndür.
-
-Eğer komut yeterliyse, çalışan Pandas kodunu oluştur ve JSON formatında döndür:
-{{"status": "success", "code": "result_df = ...", "explanation": "Kısa açıklama"}}
-
-Kod içinde yorum satırları (#) kullanabilirsin.
-Sonucu her zaman 'result_df' değişkenine ata.
-Sadece JSON döndür, başka metin yazma.
+Şimdi kullanıcının komutunu analiz et ve uygun kodu üret.
 """
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
                         {"role": "system", "content": sys_msg},
-                        {"role": "user", "content": f"Kullanıcı komutu: {processed_prompt}"}
+                        {"role": "user", "content": f"Kullanıcı komutu: {prompt}"}
                     ],
                     temperature=0.3,
                     max_tokens=2000,
@@ -403,6 +388,7 @@ Sadece JSON döndür, başka metin yazma.
                 st.session_state.processing = False
                 st.rerun()
 
+    # Temizleme butonu
     if st.button("🗑️ Sohbet Geçmişini Temizle"):
         st.session_state.messages = []
         st.rerun()
