@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 
-st.set_page_config(page_title="Excel & Veri İşleme Merkezi", layout="wide", page_icon="📊")
+st.set_page_config(page_title="Excel & Raporlama Merkezi", layout="wide", page_icon="📊")
 
 st.title("📊 Akıllı Excel & Raporlama Merkezi")
 st.markdown("Formüllerle ve makrolarla uğraşmadan tüm veri eşleştirme ve temizleme işlemlerinizi buradan yapabilirsiniz.")
@@ -15,7 +15,7 @@ tab1, tab2, tab3 = st.tabs(["📋 HBA & Geçiş Özel İşlem", "🔗 Genel DÜ�
 # ==========================================
 with tab1:
     st.header("HBA ve Geçiş Dosyası Eşleştirme")
-    col1, col2 = st.subplots(2)
+    col1, col2 = st.columns(2)
     
     with col1:
         file_hba = st.file_uploader("HBA Dosyasını Yükleyin (xlsx)", type=["xlsx", "xls"], key="hba")
@@ -32,7 +32,7 @@ with tab1:
             df_hba['birimno'] = df_hba['birimno'].astype(str).str.strip()
             df_gecis['BIRIMNO'] = df_gecis['BIRIMNO'].astype(str).str.strip()
             
-            # Eşleştirilecek sütunlar var mı kontrolü
+            # Eşleştirilecek sütunlar kontrolü
             gecis_sub = df_gecis[['BIRIMNO', 'ANKET_DURUM', 'DETAY']].drop_duplicates(subset=['BIRIMNO'])
             
             # Merge (DÜŞEYARA Karşılığı)
@@ -120,8 +120,7 @@ with tab3:
         op = st.selectbox("Yapılacak İşlemi Seçin", [
             "Mükerrer Satırları Sil",
             "Metin Sütunlarını Büyük Harfe Çevir",
-            "Boş Satırları Temizle",
-            "Özet Tablo (Pivot Table) Oluştur"
+            "Boş Satırları Temizle"
         ])
         
         if st.button("İşlemi Uygula"):
