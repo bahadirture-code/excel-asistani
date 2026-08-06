@@ -4,15 +4,7 @@ import io
 import plotly.express as px
 from difflib import SequenceMatcher
 import os
-import sys
-
-# Groq kütüphanesi kontrol
-try:
-    from groq import Groq
-    GROQ_AVAILABLE = True
-except ImportError:
-    GROQ_AVAILABLE = False
-    st.warning("⚠️ Groq kütüphanesi kurulu değil. Tab 4'te sadece OpenAI ve Claude kullanılabilir.")
+from groq import Groq
 
 st.set_page_config(page_title="Akıllı Excel & Veri İşleme Platformu", layout="wide", page_icon="⚡")
 
@@ -70,14 +62,14 @@ def export_file(df, format_type="xlsx", filename="output"):
         st.error(f"❌ Export hatası: {e}")
         return None, None
 
-st.title("⚡ Akıllı Excel & Raporlama Platformu (v2.0)")
-st.markdown("**Yenilikler:** Fuzzy matching, Çoklu export formatlı, Claude AI, Caching ⚡")
+st.title("⚡ Akıllı Excel & Raporlama Platformu")
+st.markdown("**100% ÜCRETSİZ** - Groq AI + Fuzzy Matching + Caching 🎉")
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "📋 Excel Eşleştirme & Rapor", 
     "🔗 Esnek DÜŞEYARA / XLOOKUP", 
     "🛠️ Hızlı Veri Temizleme",
-    "🤖 Yapay Zeka Veri Asistanı"
+    "🤖 Groq AI Asistanı (Ücretsiz)"
 ])
 
 # ==========================================
@@ -85,7 +77,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # ==========================================
 with tab1:
     st.header("📋 Şablon Eşleştirme ve Durum Raporlama")
-    st.caption("Otomatik fuzzy matching ile sütun adlarını tanır, hatta %80 benzer ise de eşleştirir.")
+    st.caption("Otomatik fuzzy matching ile sütun adlarını tanır.")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -102,26 +94,24 @@ with tab1:
             with c_key1:
                 k_ana = st.selectbox("Birinci Dosyadaki Ortak Sütun", df_ana.columns, key="k1")
             with c_key2:
-                # Fuzzy matching önerisi
                 similar = find_similar_columns(k_ana, df_gecis.columns)
                 if similar:
                     k_gecis_default = similar[0][0]
-                    st.info(f"💡 Benzer sütun bulundu: **{k_gecis_default}** ({similar[0][1]:.0%} eşleşme)")
+                    st.info(f"💡 Benzer sütun: **{k_gecis_default}** ({similar[0][1]:.0%})")
                 else:
                     k_gecis_default = df_gecis.columns[0]
                 
                 k_gecis = st.selectbox("İkinci Dosyadaki Ortak Sütun", df_gecis.columns, 
                                       index=list(df_gecis.columns).index(k_gecis_default), key="k2")
 
-            if st.button("🚀 Eşleştirmeyi ve Analizi Başlat", type="primary"):
+            if st.button("🚀 Eşleştirmeyi Başlat", type="primary"):
                 with st.spinner("⏳ Veriler işleniyor..."):
                     df_merged = safe_merge(df_ana.copy(), df_gecis.copy(), k_ana, k_gecis, how='left')
                     
                     if df_merged is not None:
                         st.success("✅ Veriler Başarıyla Eşleştirildi!")
                         
-                        # Özet Kartlar
-                        st.subheader("📊 Rapor Özet Göstergeleri")
+                        st.subheader("📊 Özet Göstergeleri")
                         c1, c2, c3, c4 = st.columns(4)
                         c1.metric("Toplam Kayıt", len(df_merged))
                         
@@ -136,7 +126,6 @@ with tab1:
                         st.subheader("🔍 İşlenmiş Veri Önizleme")
                         st.dataframe(df_merged.head(15), use_container_width=True)
 
-                        # Çoklu Export Seçeneği
                         st.subheader("📥 Dosyayı İndir")
                         exp_col1, exp_col2, exp_col3 = st.columns(3)
                         
@@ -160,10 +149,9 @@ with tab1:
 # ==========================================
 with tab2:
     st.header("🔗 Esnek DÜŞEYARA / XLOOKUP Modülü")
-    st.caption("Gelişmiş eşleştirme ve sütun seçimi.")
     
     file_main = st.file_uploader("Ana Dosyayı Yükleyin", type=["xlsx", "csv"], key="m_file")
-    file_ref = st.file_uploader("Referans / Kaynak Dosyayı Yükleyin", type=["xlsx", "csv"], key="r_file")
+    file_ref = st.file_uploader("Referans Dosyayı Yükleyin", type=["xlsx", "csv"], key="r_file")
     
     if file_main and file_ref:
         df_m = load_file(file_main.read(), file_main.name)
@@ -191,7 +179,6 @@ with tab2:
                         st.dataframe(res.head(20), use_container_width=True)
                         st.metric("Toplam Satır", len(res))
                         
-                        # Export
                         exp_col1, exp_col2 = st.columns(2)
                         with exp_col1:
                             data, fname = export_file(res, "xlsx", "Birlestirilmis_Veri")
@@ -206,7 +193,7 @@ with tab2:
 # TAB 3: HIZLI VERİ TEMİZLEME MODÜLÜ
 # ==========================================
 with tab3:
-    st.header("🛠️ Otomatik Veri Temizleme & Makrolar")
+    st.header("🛠️ Otomatik Veri Temizleme")
     file_clean = st.file_uploader("Temizlenecek Dosyayı Yükleyin", type=["xlsx", "csv"], key="c_file")
     
     if file_clean:
@@ -216,20 +203,20 @@ with tab3:
             st.write(f"**Orijinal:** {df_c.shape[0]} Satır × {df_c.shape[1]} Sütun")
             
             op = st.selectbox("Yapılacak İşlem", [
-                "Mükerrer Satırları Sil (Tüm Kolonlar)",
+                "Mükerrer Satırları Sil",
                 "Belirli Bir Sütuna Göre Mükerrerleri Sil",
-                "Metin Sütunlarındaki Gereksiz Boşlukları Temizle (TRIM)",
+                "Metin Boşluklarını Temizle (TRIM)",
                 "Metinleri BÜYÜK HARFE Çevir",
                 "Tamamen Boş Satırları Sil",
-                "Null/Boş Değerleri Belirli Değerle Doldur"
+                "Null Değerleri Doldur"
             ])
             
             selected_col = None
             fill_value = None
             
             if op == "Belirli Bir Sütuna Göre Mükerrerleri Sil":
-                selected_col = st.selectbox("Hangi Sütuna Göre?", df_c.columns)
-            elif op == "Null/Boş Değerleri Belirli Değerle Doldur":
+                selected_col = st.selectbox("Hangi Sütun?", df_c.columns)
+            elif op == "Null Değerleri Doldur":
                 fill_col = st.selectbox("Hangi Sütun?", df_c.columns)
                 fill_value = st.text_input("Doldurulacak Değer:")
                 
@@ -237,11 +224,11 @@ with tab3:
                 try:
                     df_original_size = len(df_c)
                     
-                    if op == "Mükerrer Satırları Sil (Tüm Kolonlar)":
+                    if op == "Mükerrer Satırları Sil":
                         df_c = df_c.drop_duplicates()
                     elif op == "Belirli Bir Sütuna Göre Mükerrerleri Sil" and selected_col:
                         df_c = df_c.drop_duplicates(subset=[selected_col])
-                    elif op == "Metin Sütunlarındaki Gereksiz Boşlukları Temizle (TRIM)":
+                    elif op == "Metin Boşluklarını Temizle (TRIM)":
                         for col in df_c.select_dtypes(include='object').columns:
                             df_c[col] = df_c[col].astype(str).str.strip()
                     elif op == "Metinleri BÜYÜK HARFE Çevir":
@@ -249,13 +236,12 @@ with tab3:
                             df_c[col] = df_c[col].astype(str).str.upper()
                     elif op == "Tamamen Boş Satırları Sil":
                         df_c = df_c.dropna(how='all')
-                    elif op == "Null/Boş Değerleri Belirli Değerle Doldur" and fill_value:
+                    elif op == "Null Değerleri Doldur" and fill_value:
                         df_c[fill_col] = df_c[fill_col].fillna(fill_value)
                         
-                    st.success(f"✅ Tamamlandı! {df_original_size - len(df_c)} satır işlendi. Yeni boyut: {len(df_c)} Satır")
+                    st.success(f"✅ Tamamlandı! {df_original_size - len(df_c)} satır işlendi.")
                     st.dataframe(df_c.head(15), use_container_width=True)
                     
-                    # Export
                     exp_col1, exp_col2 = st.columns(2)
                     with exp_col1:
                         data, fname = export_file(df_c, "xlsx", "Temizlenmis_Veri")
@@ -270,26 +256,11 @@ with tab3:
                     st.error(f"❌ Hata: {e}")
 
 # ==========================================
-# TAB 4: YAPAY ZEKA VERİ ASİSTANI
+# TAB 4: GROQ AI (ÜCRETSİZ)
 # ==========================================
 with tab4:
-    st.header("🤖 Yapay Zeka Excel & Analiz Asistanı")
-    
-    if GROQ_AVAILABLE:
-        st.caption("**Groq (Ücretsiz)** 🎉 | OpenAI | Claude")
-        ai_options = [
-            "🎉 Groq (Ücretsiz & Hızlı)", 
-            "OpenAI (GPT-4o-mini)", 
-            "Claude (Anthropic)"
-        ]
-    else:
-        st.caption("OpenAI | Claude")
-        ai_options = [
-            "OpenAI (GPT-4o-mini)", 
-            "Claude (Anthropic)"
-        ]
-    
-    ai_provider = st.radio("Hangi AI kullanmak istiyorsunuz?", ai_options)
+    st.header("🎉 Groq AI Excel Asistanı (Tamamen Ücretsiz)")
+    st.caption("**Groq:** Hızlı, Ücretsiz, Türkçe Destek | https://console.groq.com/keys")
     
     ai_col1, ai_col2 = st.columns(2)
     with ai_col1:
@@ -301,87 +272,45 @@ with tab4:
     df2 = load_file(f2.read(), f2.name) if f2 else None
     
     if df1 is not None:
-        st.write("📌 **1. Dosya Sütunları (df1):**", list(df1.columns))
+        st.write("📌 **1. Dosya Sütunları:**", list(df1.columns))
         if df2 is not None:
-            st.write("📌 **2. Dosya Sütunları (df2):**", list(df2.columns))
+            st.write("📌 **2. Dosya Sütunları:**", list(df2.columns))
             
         user_prompt = st.text_area(
             "Yapay Zekaya Komut Verin:", 
-            placeholder="Örn: 'df1 ile df2'yi BIRIMNO sütununa göre birleştir ve ANKET_DURUM='KALAN' olanları filtrele.'"
+            placeholder="Örn: 'df1 ile df2'yi BIRIMNO'ya göre birleştir ve ANKET_DURUM=KALAN olanları filtrele'"
         )
         
-        if st.button("🚀 Yapay Zekaya İşlet", type="primary"):
+        if st.button("🚀 Groq'a İşlet", type="primary"):
             if not user_prompt.strip():
                 st.warning("Lütfen bir talimat verin.")
             else:
-                api_key = None
-                if ai_provider == "🎉 Groq (Ücretsiz & Hızlı)":
-                    api_key = st.secrets.get("GROQ_API_KEY")
-                    if not api_key:
-                        st.error("⚠️ GROQ_API_KEY tanımlı değil. https://console.groq.com/keys adresinden key alın (ücretsiz).")
-                elif ai_provider == "OpenAI (GPT-4o-mini)":
-                    api_key = st.secrets.get("OPENAI_API_KEY")
-                    if not api_key:
-                        st.error("⚠️ OPENAI_API_KEY tanımlı değil.")
+                api_key = st.secrets.get("GROQ_API_KEY")
+                if not api_key:
+                    st.error("❌ GROQ_API_KEY tanımlı değil!")
+                    st.info("📍 https://console.groq.com/keys adresinden key al (30 saniye)")
                 else:
-                    api_key = st.secrets.get("ANTHROPIC_API_KEY")
-                    if not api_key:
-                        st.error("⚠️ ANTHROPIC_API_KEY tanımlı değil.")
-                
-                if api_key:
                     try:
-                        with st.spinner("🤖 Yapay zeka çalışıyor..."):
+                        with st.spinner("🤖 Groq çalışıyor..."):
+                            client = Groq(api_key=api_key)
+                            
                             sys_msg = f"""Sen profesyonel Python Pandas uzmanısın.
 Veri çerçeveleri: df1 ({list(df1.columns)}){f", df2 ({list(df2.columns)})" if df2 is not None else ""}
 SADECE çalıştırılabilir geçerli Python pandas kodu gönder.
 Sonucu 'result_df' isimli değişkene ata.
 Kodu ```python ... ``` içerisinde döndür."""
                             
-                            if ai_provider == "🎉 Groq (Ücretsiz & Hızlı)":
-                                if GROQ_AVAILABLE:
-                                    client = Groq(api_key=api_key)
-                                else:
-                                    st.error("Groq kütüphanesi kurulu değil.")
-                                    st.stop()
-                                
-                                response = client.chat.completions.create(
-                                    model="mixtral-8x7b-32768",
-                                    messages=[
-                                        {"role": "system", "content": sys_msg},
-                                        {"role": "user", "content": user_prompt}
-                                    ],
-                                    temperature=0.3,
-                                    max_tokens=1500
-                                )
-                                code_res = response.choices[0].message.content
-                                
-                            elif ai_provider == "OpenAI (GPT-4o-mini)":
-                                import openai
-                                client = openai.OpenAI(api_key=api_key)
-                                
-                                response = client.chat.completions.create(
-                                    model="gpt-4o-mini",
-                                    messages=[
-                                        {"role": "system", "content": sys_msg},
-                                        {"role": "user", "content": user_prompt}
-                                    ],
-                                    temperature=0.3
-                                )
-                                code_res = response.choices[0].message.content
-                                
-                            else:  # Claude
-                                import anthropic
-                                client = anthropic.Anthropic(api_key=api_key)
-                                
-                                response = client.messages.create(
-                                    model="claude-opus-4-1",
-                                    max_tokens=1500,
-                                    system=sys_msg,
-                                    messages=[
-                                        {"role": "user", "content": user_prompt}
-                                    ]
-                                )
-                                code_res = response.content[0].text
+                            response = client.chat.completions.create(
+                                model="mixtral-8x7b-32768",
+                                messages=[
+                                    {"role": "system", "content": sys_msg},
+                                    {"role": "user", "content": user_prompt}
+                                ],
+                                temperature=0.3,
+                                max_tokens=1500
+                            )
+                            
+                            code_res = response.choices[0].message.content
                             
                             # Kod çıkarımı
                             code_clean = code_res.split("```python")[1].split("```")[0].strip() if "```python" in code_res else code_res.strip()
@@ -392,29 +321,28 @@ Kodu ```python ... ``` içerisinde döndür."""
                             result_df = local_vars.get("result_df")
                             
                             if result_df is not None:
-                                st.success("✅ İşlem Başarıyla Tamamlandı!")
+                                st.success("✅ İşlem Tamamlandı!")
                                 st.dataframe(result_df.head(20), use_container_width=True)
                                 st.metric("Sonuç Satır Sayısı", len(result_df))
                                 
-                                with st.expander("🛠️ Arka Planda Çalıştırılan Python Kodu"):
+                                with st.expander("🛠️ Arka Planda Çalıştırılan Kod"):
                                     st.code(code_clean, language="python")
                                 
-                                # Export
                                 exp_col1, exp_col2, exp_col3 = st.columns(3)
                                 with exp_col1:
                                     data, fname = export_file(result_df, "xlsx", "AI_Sonuc")
                                     if data:
-                                        st.download_button("📊 Excel İndir", data, fname, key="ai_dl1")
+                                        st.download_button("📊 Excel", data, fname, key="ai_dl1")
                                 with exp_col2:
                                     data, fname = export_file(result_df, "csv", "AI_Sonuc")
                                     if data:
-                                        st.download_button("📄 CSV İndir", data, fname, key="ai_dl2")
+                                        st.download_button("📄 CSV", data, fname, key="ai_dl2")
                                 with exp_col3:
                                     data, fname = export_file(result_df, "parquet", "AI_Sonuc")
                                     if data:
-                                        st.download_button("⚡ Parquet İndir", data, fname, key="ai_dl3")
+                                        st.download_button("⚡ Parquet", data, fname, key="ai_dl3")
                             else:
-                                st.error("❌ Yapay zeka kod çalıştırılamadı. Lütfen taLimatınızı gözden geçirin.")
+                                st.error("❌ Kod çalıştırılamadı. Taalimatı gözden geçir.")
                                 
                     except Exception as e:
                         st.error(f"❌ Hata: {str(e)[:200]}")
