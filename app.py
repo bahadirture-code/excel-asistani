@@ -7,66 +7,79 @@ st.set_page_config(page_title="Excel & Raporlama Merkezi", layout="wide", page_i
 st.title("📊 Akıllı Excel & Raporlama Merkezi")
 st.markdown("Formüllerle ve makrolarla uğraşmadan tüm veri eşleştirme ve temizleme işlemlerinizi buradan yapabilirsiniz.")
 
-# Tab Yapısı
-tab1, tab2, tab3 = st.tabs(["📋 HBA & Geçiş Özel İşlem", "🔗 Genel DÜŞEYARA / Eşleştirme", "🛠️ Veri Temizleme & Makrolar"])
+# Tab Yapısı (Genel ve Mantıklı Başlıklar)
+tab1, tab2, tab3 = st.tabs(["📋 Anket & Durum Eşleştirme", "🔗 Genel DÜŞEYARA / Eşleştirme", "🛠️ Veri Temizleme & Makrolar"])
 
 # ==========================================
-# TAB 1: HBA & GEÇİŞ ÖZEL MODÜLÜ
+# TAB 1: ANKET & DURUM EŞLEŞTİRME MODÜLÜ
 # ==========================================
 with tab1:
-    st.header("HBA ve Geçiş Dosyası Eşleştirme")
+    st.header("Anket Listesi ve Geçiş Dosyası Eşleştirme")
+    st.caption("Birinci dosyaya ana anket listenizi, ikinci dosyaya sistemden aldığınız durum raporunu yükleyin.")
+    
     col1, col2 = st.columns(2)
     
     with col1:
-        file_hba = st.file_uploader("HBA Dosyasını Yükleyin (xlsx)", type=["xlsx", "xls"], key="hba")
+        file_ana = st.file_uploader("Ana Anket Listesini Yükleyin (xlsx)", type=["xlsx", "xls"], key="ana_dosya")
     with col2:
-        file_gecis = st.file_uploader("Geçiş Dosyasını Yükleyin (xlsx)", type=["xlsx", "xls"], key="gecis")
+        file_gecis = st.file_uploader("Geçiş / Durum Raporunu Yükleyin (xlsx)", type=["xlsx", "xls"], key="gecis_dosya")
 
-    if file_hba and file_gecis:
+    if file_ana and file_gecis:
         try:
             # Okuma İşlemleri
-            df_hba = pd.read_excel(file_hba, sheet_name="Sayfa1")
-            df_gecis = pd.read_excel(file_gecis, sheet_name="Rapor")
+            df_ana = pd.read_excel(file_ana)
+            df_gecis = pd.read_excel(file_gecis)
             
-            # String Dönüşümü
-            df_hba['birimno'] = df_hba['birimno'].astype(str).str.strip()
-            df_gecis['BIRIMNO'] = df_gecis['BIRIMNO'].astype(str).str.strip()
+            # birimno / BIRIMNO sütunlarını arama ve yakalama
+            col_ana_key = [c for c in df_ana.columns if str(c).strip().lower() == 'birimno']
+            col_gecis_key = [c for c in df_gecis.columns if str(c).strip().lower() == 'birimno']
             
-            # Eşleştirilecek sütunlar kontrolü
-            gecis_sub = df_gecis[['BIRIMNO', 'ANKET_DURUM', 'DETAY']].drop_duplicates(subset=['BIRIMNO'])
-            
-            # Merge (DÜŞEYARA Karşılığı)
-            df_merged = pd.merge(df_hba, gecis_sub, on='birimno', how='left', suffixes=('_eski', ''))
-            
-            if 'ANKET_DURUM_eski' in df_merged.columns:
-                df_merged.drop(columns=['ANKET_DURUM_eski'], inplace=True)
-            if 'DETAY_eski' in df_merged.columns:
-                df_merged.drop(columns=['DETAY_eski'], inplace=True)
+            if col_ana_key and col_gecis_key:
+                k_ana = col_ana_key[0]
+                k_gecis = col_gecis_key[0]
 
-            st.success("✅ Eşleştirme Başarıyla Tamamlandı!")
-            
-            # KPI Kartları
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Toplam Anket", len(df_merged))
-            c2.metric("Tamamlanan (TAM)", (df_merged['ANKET_DURUM'] == 'TAM').sum())
-            c3.metric("Kalan (KALAN)", (df_merged['ANKET_DURUM'] == 'KALAN').sum())
-            c4.metric("Boş / Diğer", df_merged['ANKET_DURUM'].isna().sum())
+                df_ana[k_ana] = df_ana[k_ana].astype(str).str.strip()
+                df_gecis[k_gecis] = df_gecis[k_gecis].astype(str).str.strip()
+                
+                # Eşleştirilecek sütunlar kontrolü
+                gecis_sub = df_gecis[[k_gecis, 'ANKET_DURUM', 'DETAY']].drop_duplicates(subset=[k_gecis])
+                
+                # Merge (DÜŞEYARA Karşılığı)
+                df_merged = pd.merge(df_ana, gecis_sub, left_on=k_ana, right_on=k_gecis, how='left', suffixes=('_eski', ''))
+                
+                if 'ANKET_DURUM_eski' in df_merged.columns:
+                    df_merged.drop(columns=['ANKET_DURUM_eski'], inplace=True)
+                if 'DETAY_eski' in df_merged.columns:
+                    df_merged.drop(columns=['DETAY_eski'], inplace=True)
+                if k_gecis != k_ana and k_gecis in df_merged.columns:
+                    df_merged.drop(columns=[k_gecis], inplace=True)
 
-            # Tablo Gösterimi
-            st.subheader("İşlenmiş Veri Önizleme")
-            st.dataframe(df_merged.head(10), use_container_width=True)
+                st.success("✅ Eşleştirme Başarıyla Tamamlandı!")
+                
+                # KPI Kartları
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Toplam Anket", len(df_merged))
+                c2.metric("Tamamlanan (TAM)", (df_merged['ANKET_DURUM'] == 'TAM').sum())
+                c3.metric("Kalan (KALAN)", (df_merged['ANKET_DURUM'] == 'KALAN').sum())
+                c4.metric("Boş / Diğer", df_merged['ANKET_DURUM'].isna().sum())
 
-            # Excel İndirme Butonu
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df_merged.to_excel(writer, sheet_name='Sayfa1', index=False)
-            
-            st.download_button(
-                label="📥 Tamamlanmış HBA Dosyasını İndir",
-                data=output.getvalue(),
-                file_name="HBA_ISLENMIS.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+                # Tablo Gösterimi
+                st.subheader("İşlenmiş Veri Önizleme")
+                st.dataframe(df_merged.head(10), use_container_width=True)
+
+                # Excel İndirme Butonu
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df_merged.to_excel(writer, index=False)
+                
+                st.download_button(
+                    label="📥 Güncellenmiş Anket Dosyasını İndir",
+                    data=output.getvalue(),
+                    file_name="Anket_Durum_Guncellendi.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            else:
+                st.warning("Her iki dosyada da 'birimno' sütunu bulunamadı. Lütfen sütun isimlerini kontrol edin.")
         except Exception as e:
             st.error(f"Hata oluştu: {e}")
 
