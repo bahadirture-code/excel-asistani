@@ -34,10 +34,11 @@ def load_file(file_bytes, filename):
         st.error(f"❌ Dosya hatası: {e}")
         return None
 
-@st.cache_data
+# find_similar_columns cache KALDIRILDI - Index hash sorunu nedeniyle
 def find_similar_columns(col_name, available_cols, threshold=0.7):
     matches = []
-    for col in available_cols:
+    # available_cols bir Index olabilir, listeye çevir
+    for col in list(available_cols):
         ratio = SequenceMatcher(None, str(col_name).lower(), str(col).lower()).ratio()
         if ratio >= threshold:
             matches.append((col, ratio))
@@ -294,7 +295,7 @@ with tab5:
                         else:
                             with st.spinner("⏳ Groq ile iletişim kuruluyor..."):
                                 client = Groq(api_key=api_key)
-                                # DÜZELTİLDİ: ... kaldırıldı, örnek kod eklendi
+                                # SİSTEM MESAJI - DÜZELTİLDİ (model güncel, ... kaldırıldı, örnek kod eklendi)
                                 sys_msg = f"""Python Pandas uzmanısın.
 df1: {list(df1.columns)}{f", df2: {list(df2.columns)}" if df2 is not None else ""}
 Sadece çalışan Python kodu döndür. Sonucu 'result_df' değişkenine ata.
@@ -304,7 +305,7 @@ Kod bloğunu ```python ``` etiketleri arasına yaz.
 result_df = df1.groupby('kategori').agg({'satis': 'sum'})
 ```"""
                                 response = client.chat.completions.create(
-                                    model="llama-3.3-70b-versatile",  # Değiştirildi!
+                                    model="llama-3.3-70b-versatile",  # GÜNCELLENDİ
                                     messages=[
                                         {"role": "system", "content": sys_msg},
                                         {"role": "user", "content": user_prompt}
