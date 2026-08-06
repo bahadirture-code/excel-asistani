@@ -203,7 +203,7 @@ if st.session_state.file_data:
                 if data['sheets']:
                     current_sheet = data['selected_sheet'] if data['selected_sheet'] else data['sheets'][0]
                     selected_sheet = st.selectbox(
-                        f"Sayfa seçin",
+                        f"Sayfa seçin ({name})",
                         options=data['sheets'],
                         index=data['sheets'].index(current_sheet) if current_sheet in data['sheets'] else 0,
                         key=f"sheet_{name}"
@@ -222,7 +222,7 @@ if st.session_state.file_data:
                     df = data['df']
                     st.caption(f"{df.shape[0]} satır, {df.shape[1]} sütun")
                     with st.expander("🔍 Önizleme"):
-                        st.dataframe(df.head(5), width='stretch')
+                        st.dataframe(df.head(5), use_container_width=True)
                     with st.expander("📊 Özet İstatistikler"):
                         num_cols = df.select_dtypes(include=['number']).columns
                         if len(num_cols) > 0:
@@ -287,35 +287,39 @@ else:
                 client = Groq(api_key=api_key)
 
                 # ============================================================
-                # GELİŞMİŞ SİSTEM MESAJI (TÜM DOSYA VE SÜTUN BİLGİLERİYLE)
+                # GELİŞMİŞ SİSTEM MESAJI
                 # ============================================================
-                # Kullanıcının hangi dosyayı kastettiğini anlamak için dosya isimleri ve sütunları
                 df_desc = []
-                for i, (name, df) in enumerate(available_dfs.items(), start=1):
-                    cols = list(df.columns)
-                    df_desc.append(f"df{i} (dosya: '{name}', sütunlar: {cols})")
+                for i, (name, data) in enumerate(st.session_state.file_data.items(), start=1):
+                    df = data['df']
+                    if df is not None:
+                        cols = list(df.columns)
+                        sheet_info = f" (Aktif Sekme: '{data.get('selected_sheet')}')" if data.get('selected_sheet') else ""
+                        df_desc.append(f"df{i} -> Dosya Adı: '{name}'{sheet_info}, Sütunlar: {cols}")
+
                 df_list_str = "\n".join(df_desc)
 
-                sys_msg = f"""Sen bir veri işleme asistanısın. Kullanıcı Türkçe doğal dilde ne istediğini söyleyecek.
+                sys_msg = f"""Sen uzman bir Python Pandas veri analistisin. Kullanıcı Türkçe doğal dilde ne istediğini söyleyecek.
 
-Mevcut DataFrame'ler:
+Mevcut Yüklü DataFrame'ler:
 {df_list_str}
 
 ÖNEMLİ KURALLAR:
-1. Kullanıcı dosya ismi vermezse, söylediği işlemi anlamaya çalış. Örneğin "birim numaraları üzerinden anket durum ve detayları çek" derse, hangi dosyada "birim numarası" var, hangisinde "anket durum" ve "detay" var, bunları sütun isimlerinden bul.
-2. Kullanıcı "şu dosyadaki" diyerek bir dosya ismi verirse, o dosyayı kullan. Dosya isimleri exact match olmak zorunda değil, yakın eşleşme yapabilirsin (örnek: "geçiş" -> "geçiş.xlsx").
-3. Hangi sütunun hangi dosyada olduğunu sütun listesinden kontrol et.
-4. Eğer komut net değilse veya birden fazla olasılık varsa, kullanıcıya soru sor (JSON formatında).
-5. Sonuçta oluşan DataFrame'i 'result_df' değişkenine ata.
-6. Sadece çalışan Pandas kodu döndür, kod bloğunu ```python ``` etiketleri arasına yaz.
+1. Sütun eşleştirmelerinde (Join/Merge/VLOOKUP) büyük-küçük harf farklılığı olabileceğini unutma ('BIRIMNO' vs 'birimno'). Eşleştirme yaparken sütun tiplerini mutlaka `astype(str)` ile eşitle.
+2. Ana dosyadaki değerlerin üzerine yazacak veya yeni sütun aktaracaksan `.map()` veya `pd.merge()` kullan.
+3. Sonuçta oluşan DataFrame'i KESİNLİKLE `result_df` değişkenine ata.
+4. Yanıtını SADECE ve SADECE aşağıdaki JSON formatında ver:
+{{
+  "status": "success",
+  "explanation": "Yapılan işlemin özeti",
+  "code": "result_df = ... (çalışacak tek parça Python Pandas kuralı)"
+}}
 
-Örnek komut ve çıktı:
-Kullanıcı: "birim numaraları üzerinden geçiş dosyasındaki anket durum ve detayları hba dosyasına çek"
-- df1 = hba dosyası (içinde 'birimno' sütunu var)
-- df2 = geçiş dosyası (içinde 'BIRIMNO', 'ANKET_DURUM', 'DETAY' sütunları var)
-- Kod: df1 ve df2'yi join yap, ANKET_DURUM ve DETAY'ı getir, sonucu result_df olarak kaydet.
-
-Şimdi kullanıcının komutunu analiz et ve uygun kodu üret.
+Eğer durum net değilse veya ek bilgi gerekiyorsa:
+{{
+  "status": "need_clarification",
+  "question": "Kullanıcıya sorulacak netleştirme sorusu"
+}}
 """
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
@@ -323,7 +327,7 @@ Kullanıcı: "birim numaraları üzerinden geçiş dosyasındaki anket durum ve 
                         {"role": "system", "content": sys_msg},
                         {"role": "user", "content": f"Kullanıcı komutu: {prompt}"}
                     ],
-                    temperature=0.3,
+                    temperature=0.2,
                     max_tokens=2000,
                     response_format={"type": "json_object"}
                 )
@@ -331,7 +335,7 @@ Kullanıcı: "birim numaraları üzerinden geçiş dosyasındaki anket durum ve 
                 try:
                     data = json.loads(raw_response)
                 except json.JSONDecodeError:
-                    st.session_state.messages.append({"role": "assistant", "content": f"⚠️ Beklenmeyen yanıt: {raw_response[:200]}"})
+                    st.session_state.messages.append({"role": "assistant", "content": f"⚠️ Beklenmeyen yanıt formatı: {raw_response[:200]}"})
                     st.session_state.processing = False
                     st.rerun()
 
@@ -345,16 +349,19 @@ Kullanıcı: "birim numaraları üzerinden geçiş dosyasındaki anket durum ve 
                     explanation = data.get("explanation", "İşlem tamamlandı")
                     try:
                         local_vars = {}
-                        for i, (name, df) in enumerate(available_dfs.items(), start=1):
-                            local_vars[f"df{i}"] = df.copy()
+                        for i, (name, data_obj) in enumerate(st.session_state.file_data.items(), start=1):
+                            if data_obj['df'] is not None:
+                                local_vars[f"df{i}"] = data_obj['df'].copy()
                         local_vars["pd"] = pd
+                        
                         exec(code, {}, local_vars)
                         result_df = local_vars.get("result_df")
+                        
                         if result_df is not None and isinstance(result_df, pd.DataFrame):
                             st.session_state.messages.append({"role": "assistant", "content": f"✅ {explanation}"})
                             with st.chat_message("assistant"):
                                 st.write(f"**{explanation}**")
-                                st.dataframe(result_df.head(10), width='stretch')
+                                st.dataframe(result_df.head(10), use_container_width=True)
                                 col1, col2 = st.columns(2)
                                 with col1:
                                     excel_data, excel_fname = export_file(result_df, "xlsx", "ai_sonuc")
