@@ -288,10 +288,11 @@ with tab5:
                     else:
                         with st.spinner("⏳ Çalışıyor..."):
                             client = Groq(api_key=api_key)
-                            sys_msg = f\"\"\"Python Pandas uzmanısın.
-df1: {list(df1.columns)}{f\", df2: {list(df2.columns)}\" if df2 is not None else ""}
+                            # DÜZELTİLMİŞ KISIM (f-string ve üç tırnak)
+                            sys_msg = f"""Python Pandas uzmanısın.
+df1: {list(df1.columns)}{f", df2: {list(df2.columns)}" if df2 is not None else ""}
 Sadece çalışan kod döndür. Sonucu result_df'e ata.
-```python ... ``` şeklinde gönder.\"\"\"
+```python ... ``` şeklinde gönder."""
                             response = client.chat.completions.create(
                                 model="mixtral-8x7b-32768",
                                 messages=[
