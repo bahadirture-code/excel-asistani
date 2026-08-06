@@ -7,11 +7,11 @@ st.set_page_config(page_title="Excel & Raporlama Merkezi", layout="wide", page_i
 st.title("📊 Akıllı Excel & Raporlama Merkezi")
 st.markdown("Formüllerle ve makrolarla uğraşmadan tüm veri eşleştirme ve temizleme işlemlerinizi buradan yapabilirsiniz.")
 
-# Tab Yapısı (Genel ve Mantıklı Başlıklar)
-tab1, tab2, tab3 = st.tabs(["📋 Anket & Durum Eşleştirme", "🔗 Genel DÜŞEYARA / Eşleştirme", "🛠️ Veri Temizleme & Makrolar"])
+# Tab Yapısı
+tab1, tab2, tab3 = st.tabs(["📋 Excel Eşleştirme", "🔗 Genel DÜŞEYARA / Eşleştirme", "🛠️ Veri Temizleme & Makrolar"])
 
 # ==========================================
-# TAB 1: ANKET & DURUM EŞLEŞTİRME MODÜLÜ
+# TAB 1: EXCEL EŞLEŞTİRME MODÜLÜ
 # ==========================================
 with tab1:
     st.header("Anket Listesi ve Geçiş Dosyası Eşleştirme")
