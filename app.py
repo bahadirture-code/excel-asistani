@@ -151,6 +151,8 @@ if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'processing' not in st.session_state:
     st.session_state.processing = False
+if 'last_result_df' not in st.session_state:
+    st.session_state.last_result_df = None
 
 st.title("🤖 AI Veri Asistanı")
 st.markdown("**Dosyaları yükleyin, doğal dilde komut yazın, AI işlemi yapsın.**")
@@ -229,13 +231,6 @@ if st.session_state.file_data:
                             st.dataframe(df[num_cols].describe())
                         else:
                             st.info("Sayısal sütun yok")
-                    with st.expander("📈 Grafikler"):
-                        figs = generate_plots(df)
-                        if figs:
-                            for fig in figs:
-                                st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            st.info("Grafik oluşturulamadı")
                     col1, col2 = st.columns(2)
                     with col1:
                         excel_data, excel_fname = export_file(df, "xlsx", name.replace('.', '_'))
@@ -262,7 +257,7 @@ else:
     if not available_dfs:
         st.info("Lütfen önce yukarıdan dosya yükleyin ve bir sayfa seçin.")
     else:
-        # Sohbet geçmişi
+        # Sohbet geçmişi gösterimi
         for msg in st.session_state.messages:
             role_class = "user" if msg["role"] == "user" else "assistant"
             st.markdown(f'''
@@ -271,6 +266,20 @@ else:
                     {msg["content"]}
                 </div>
             ''', unsafe_allow_html=True)
+
+        # Son üretilen başarılı sonucu sabit olarak alt kısımda tut
+        if st.session_state.last_result_df is not None:
+            st.markdown("### 🎯 Son AI İşlem Çıktısı")
+            st.dataframe(st.session_state.last_result_df.head(10), use_container_width=True)
+            col1, col2 = st.columns(2)
+            with col1:
+                excel_data, excel_fname = export_file(st.session_state.last_result_df, "xlsx", "ai_sonuc_guncel")
+                if excel_data:
+                    st.download_button("📊 İşlenmiş Excel İndir", excel_data, excel_fname, key="ai_excel_static")
+            with col2:
+                csv_data, csv_fname = export_file(st.session_state.last_result_df, "csv", "ai_sonuc_guncel")
+                if csv_data:
+                    st.download_button("📄 İşlenmiş CSV İndir", csv_data, csv_fname, key="ai_csv_static")
 
         # Kullanıcı girişi
         prompt = st.chat_input("Ne yapmak istersiniz? (Türkçe, doğal dil)")
@@ -287,7 +296,7 @@ else:
                 client = Groq(api_key=api_key)
 
                 # ============================================================
-                # GELİŞMİŞ SİSTEM MESAJI
+                # SİSTEM MESAJI (PROMPT)
                 # ============================================================
                 df_desc = []
                 for i, (name, data) in enumerate(st.session_state.file_data.items(), start=1):
@@ -304,15 +313,15 @@ else:
 Mevcut Yüklü DataFrame'ler:
 {df_list_str}
 
-ÖNEMLİ KOD VE EŞLEŞTİRME KURALLARI:
-1. TIP UYUMSUZLUĞU HATALARINI ÖNLE (ÇOK ÖNEMLİ):
-   - İki dataframe eşleştirilirken (Merge/Join/Map/Lookup), anahtar sütunların veri tiplerini MUTLAKA önce metne (`astype(str)`) çevir!
+ÇOK ÖNEMLİ KOD VE EŞLEŞTİRME KURALLARI:
+1. TIP UYUMSUZLUĞU HATALARINI ÖNLE:
+   - İki dataframe eşleştirilirken (Merge/Join/Map/Lookup), anahtar sütunların veri tiplerini MUTLAKA metne (`astype(str)`) çevir!
    - Örnek eşleştirme öncesi hazırlık:
      df1['birimno'] = df1['birimno'].astype(str)
      df2['BIRIMNO'] = df2['BIRIMNO'].astype(str)
-   - Sütun adlarındaki büyük/küçük harf farklarına dikkat et ('BIRIMNO' ile 'birimno').
+   - Sütun adlarındaki büyük/küçük harf farklarına dikkat et ('BIRIMNO' vs 'birimno').
 
-2. ÇIKTI ŞERTLERİ:
+2. ÇIKTI ŞARTLARI:
    - Kodun sonunda oluşan nihai dataframe'i MUTLAKA `result_df` isimli değişkene ata.
 
 3. YANIT FORMATI:
@@ -320,7 +329,7 @@ Mevcut Yüklü DataFrame'ler:
 {{
   "status": "success",
   "explanation": "Yapılan işlemin açıklaması",
-  "code": "# Python kuralı buraya (sütun tiplerini astype(str) yaptıktan sonra işlemi gerçekleştir)"
+  "code": "# Python Pandas kodu buraya"
 }}
 
 Eğer komut belirsizse veya ek bilgi gerekiyorsa:
@@ -366,28 +375,13 @@ Eğer komut belirsizse veya ek bilgi gerekiyorsa:
                         result_df = local_vars.get("result_df")
                         
                         if result_df is not None and isinstance(result_df, pd.DataFrame):
+                            # KALICI KAYIT: Sonucu oturum durumuna kaydet
+                            st.session_state.last_result_df = result_df
                             st.session_state.messages.append({"role": "assistant", "content": f"✅ {explanation}"})
-                            with st.chat_message("assistant"):
-                                st.write(f"**{explanation}**")
-                                st.dataframe(result_df.head(10), use_container_width=True)
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    excel_data, excel_fname = export_file(result_df, "xlsx", "ai_sonuc")
-                                    if excel_data:
-                                        st.download_button("📊 Excel İndir", excel_data, excel_fname, key="ai_excel")
-                                with col2:
-                                    csv_data, csv_fname = export_file(result_df, "csv", "ai_sonuc")
-                                    if csv_data:
-                                        st.download_button("📄 CSV İndir", csv_data, csv_fname, key="ai_csv")
-                                num_cols = result_df.select_dtypes(include=['number']).columns
-                                if len(num_cols) >= 1 and len(result_df) > 0:
-                                    st.caption("📈 Otomatik Grafik")
-                                    fig = px.histogram(result_df, x=num_cols[0], title="Sonuç Dağılımı")
-                                    st.plotly_chart(fig, use_container_width=True)
                             st.session_state.processing = False
                             st.rerun()
                         else:
-                            st.session_state.messages.append({"role": "assistant", "content": "⚠️ Kod çalıştı ama 'result_df' oluşturulamadı. Komutunuzu kontrol edin."})
+                            st.session_state.messages.append({"role": "assistant", "content": "⚠️ Kod çalıştı ama 'result_df' oluşturulamadı."})
                             st.session_state.processing = False
                             st.rerun()
                     except Exception as e:
@@ -403,7 +397,7 @@ Eğer komut belirsizse veya ek bilgi gerekiyorsa:
                 st.session_state.processing = False
                 st.rerun()
 
-    # Temizleme butonu
     if st.button("🗑️ Sohbet Geçmişini Temizle"):
         st.session_state.messages = []
+        st.session_state.last_result_df = None
         st.rerun()
