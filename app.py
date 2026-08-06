@@ -288,10 +288,10 @@ with tab5:
                     else:
                         with st.spinner("⏳ Çalışıyor..."):
                             client = Groq(api_key=api_key)
-                            sys_msg = f"""Python Pandas uzmanısın.
-df1: {list(df1.columns)}{f", df2: {list(df2.columns)}" if df2 is not None else ""}
+                            sys_msg = f\"\"\"Python Pandas uzmanısın.
+df1: {list(df1.columns)}{f\", df2: {list(df2.columns)}\" if df2 is not None else ""}
 Sadece çalışan kod döndür. Sonucu result_df'e ata.
-```python ... ``` şeklinde gönder."""
+```python ... ``` şeklinde gönder.\"\"\"
                             response = client.chat.completions.create(
                                 model="mixtral-8x7b-32768",
                                 messages=[
@@ -334,5 +334,4 @@ Sadece çalışan kod döndür. Sonucu result_df'e ata.
 # FOOTER / BILGILENDIRME
 # ==========================================
 st.markdown("---")
-st.markdown("Not: Groq, ydata-profiling gibi opsiyonel paketler ortamda yüklü değilse ilgili bölümler çalışmayacaktır. "
-            "Gerekli paketleri `requirements.txt` içine ekleyip deploy sırasında yükleyin.")
+st.markdown("**Not:** Groq, ydata-profiling ve streamlit-pandas-profiling gibi opsiyonel paketler ortamda yüklü değilse ilgili bölümler çalışmayacaktır. Gerekli paketleri `requirements.txt` içine ekleyip deploy sırasında yükleyin.")

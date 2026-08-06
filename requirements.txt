@@ -5,9 +5,13 @@ xlsxwriter>=3.1
 plotly>=5.17
 groq>=0.4
 
-# Opsiyonel - Veri profili (yüklü değilse Profil sekri çalışmaz)
+# Opsiyonel - Veri profili (büyük bağımlılıklar getirebilir)
 ydata-profiling>=4.3.0
 streamlit-pandas-profiling>=0.1.0
 
-# Opsiyonel - yerel secrets / .env yönetimi
+# Yardımcı (build araçları)
+setuptools>=68.0.0
+wheel>=0.40.0
+
+# Yerel secrets yönetimi (opsiyonel)
 python-dotenv>=1.0.0
