@@ -82,7 +82,6 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # ==========================================
 with tab1:
     st.header("📋 Excel Eşleştirme")
-    # Hata 1: st.subplots(2) yerine st.columns(2)
     col1, col2 = st.columns(2)
     with col1:
         file_ana = st.file_uploader("Dosya 1", type=["xlsx", "csv"], key="f1")
@@ -106,7 +105,6 @@ with tab1:
                     st.success("✅ Tamamlandı!")
                     st.dataframe(df_merged.head(20))
 
-                    # 📊 Grafik Görselleştirme (otomatik)
                     st.subheader("📊 Görselleştirme")
                     num_cols = df_merged.select_dtypes(include='number').columns
                     if len(num_cols) >= 2:
@@ -199,7 +197,7 @@ with tab3:
                 elif op == "Belirli Sütuna Göre Mükerrerleri Sil" and selected_col:
                     df_c = df_c.drop_duplicates(subset=[selected_col])
                 elif op == "Boşlukları Temizle (TRIM)":
-                    for col in df_c.select_dtypes(include=['object']).columns:   # Hata 2: include=['object'] eklendi
+                    for col in df_c.select_dtypes(include=['object']).columns:
                         df_c[col] = df_c[col].astype(str).str.strip()
                 elif op == "BÜYÜK HARFE Çevir":
                     for col in df_c.select_dtypes(include=['object']).columns:
@@ -252,7 +250,7 @@ with tab4:
                 st.warning("Profil raporu oluşturulamıyor. Gerekli paketler kurulu değil.")
 
 # ==========================================
-# TAB 5: GROQ AI (guarded)
+# TAB 5: GROQ AI
 # ==========================================
 with tab5:
     st.header("🤖 Groq AI (Opsiyonel)")
@@ -289,7 +287,6 @@ with tab5:
                     else:
                         with st.spinner("⏳ Çalışıyor..."):
                             client = Groq(api_key=api_key)
-                            # Hata 3: f-string kaçış karakterleri düzeltildi
                             sys_msg = f"""Python Pandas uzmanısın.
 df1: {list(df1.columns)}{f", df2: {list(df2.columns)}" if df2 is not None else ""}
 Sadece çalışan kod döndür. Sonucu result_df'e ata.
@@ -333,7 +330,6 @@ Sadece çalışan kod döndür. Sonucu result_df'e ata.
                     st.error(f"❌ Hata: {str(e)[:300]}")
 
 # ==========================================
-# FOOTER / BILGILENDIRME
+# FOOTER (not kaldırıldı)
 # ==========================================
 st.markdown("---")
-st.markdown("**Not:** Groq, ydata-profiling ve streamlit-pandas-profiling gibi opsiyonel paketler ortamda yüklü değilse ilgili bölümler çalışmayacaktır. Gerekli paketleri `requirements.txt` içine ekleyip deploy sırasında yükleyin.")
