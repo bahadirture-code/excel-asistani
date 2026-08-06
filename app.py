@@ -14,9 +14,6 @@ except Exception:
 
 st.set_page_config(page_title="AI Veri Asistanı", layout="wide", page_icon="🤖")
 
-# ==========================
-# ÖZEL CSS (TEMA)
-# ==========================
 st.markdown("""
 <style>
     .main { background-color: #f8fafc; }
@@ -76,9 +73,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================
-# YARDIMCI FONKSİYONLAR
-# ==========================
 @st.cache_data(ttl=3600)
 def load_file(file_bytes, filename, sheet_name=0):
     try:
@@ -144,40 +138,34 @@ def generate_plots(df):
 
 def preprocess_prompt(prompt, file_names):
     """
-    Kullanıcı komutundaki '1. dosya', '2. dosya', 'birinci dosya', 'ikinci dosya'
-    gibi ifadeleri sırasıyla df1, df2 ile değiştirir.
-    Ayrıca dosya adlarını da (eğer listedeyse) df1/df2 ile değiştirir.
+    Kullanıcı komutundaki dosya tanımlarını df1, df2'ye çevirir.
     """
-    # Dosya adlarını sırasıyla df1, df2 ile eşleştir
     replacements = {}
+    # Dosya adlarını sırasıyla df1, df2 ile eşleştir
     for i, name in enumerate(file_names, start=1):
         replacements[name] = f"df{i}"
-        # Ayrıca "1. dosya" -> df1, "2. dosya" -> df2
         replacements[f"{i}. dosya"] = f"df{i}"
         replacements[f"{i}.dosya"] = f"df{i}"
-        replacements[f"birinci dosya" if i==1 else "ikinci dosya"] = f"df{i}"  # basitçe
-    # Türkçe sayılar
-    replacements["birinci dosya"] = "df1"
-    replacements["ikinci dosya"] = "df2"
-    replacements["1. dosyadaki"] = "df1"
-    replacements["2. dosyadaki"] = "df2"
-    replacements["1. dosyaya"] = "df1"
-    replacements["2. dosyaya"] = "df2"
-    replacements["ana dosya"] = "df1"
-    replacements["referans dosyası"] = "df2"
-
-    # Büyük-küçük harf duyarsız değiştirme için
+        if i == 1:
+            replacements["birinci dosya"] = "df1"
+            replacements["1. dosyadaki"] = "df1"
+            replacements["1. dosyaya"] = "df1"
+            replacements["ana dosya"] = "df1"
+            replacements["HBA"] = "df1"  # Özel tanım
+        elif i == 2:
+            replacements["ikinci dosya"] = "df2"
+            replacements["2. dosyadaki"] = "df2"
+            replacements["2. dosyaya"] = "df2"
+            replacements["geçiş dosyası"] = "df2"  # Özel tanım
+            replacements["referans dosyası"] = "df2"
+    # Büyük-küçük harf duyarsız değiştirme
     for old, new in replacements.items():
         prompt = prompt.replace(old, new)
-    # Regex ile değiştirme (opsiyonel)
-    # Örnek: "1. dosya" -> df1
+    # Regex ile değiştirme
     prompt = re.sub(r'\b1\.\s*dosya\b', 'df1', prompt, flags=re.IGNORECASE)
     prompt = re.sub(r'\b2\.\s*dosya\b', 'df2', prompt, flags=re.IGNORECASE)
     return prompt
 
-# ==========================
-# OTURUM DURUMU
-# ==========================
 if 'file_data' not in st.session_state:
     st.session_state.file_data = {}
 if 'messages' not in st.session_state:
@@ -186,7 +174,7 @@ if 'processing' not in st.session_state:
     st.session_state.processing = False
 
 st.title("🤖 AI Veri Asistanı")
-st.markdown("**Dosyaları yükleyin, AI ile konuşun, verilerinizi dönüştürün ve indirin.**")
+st.markdown("**Hiç Excel bilmeyenler için doğal dil ile veri işleme**")
 
 # ==========================
 # DOSYA YÜKLEME
@@ -305,12 +293,10 @@ else:
                 </div>
             ''', unsafe_allow_html=True)
 
-        # Kullanıcı girişi
-        prompt = st.chat_input("Ne yapmak istersiniz? (ör: 'birim numaraları üzerinden 2. dosyadaki anket durum ve detayları 1. dosyaya çek')")
+        prompt = st.chat_input("Ne yapmak istersiniz? (ör: 'geçiş dosyasındaki anket durum ve detayları, birim numarasına göre HBA dosyasına ekle')")
         if prompt and not st.session_state.processing:
             st.session_state.processing = True
             try:
-                # Kullanıcı komutunu ön işleme
                 file_names = list(available_dfs.keys())
                 processed_prompt = preprocess_prompt(prompt, file_names)
                 st.session_state.messages.append({"role": "user", "content": processed_prompt})
@@ -323,7 +309,6 @@ else:
 
                 client = Groq(api_key=api_key)
 
-                # Sistem mesajı (çok net)
                 df_list_str = ", ".join([f"{k}: {list(v.columns)}" for k, v in available_dfs.items()])
                 sys_msg = f"""Python/Pandas uzmanısın. Kullanıcının komutunu analiz et.
 Mevcut DataFrame'ler:
@@ -375,7 +360,6 @@ Sadece JSON döndür, başka metin yazma.
                     explanation = data.get("explanation", "İşlem tamamlandı")
                     try:
                         local_vars = {}
-                        # df1, df2, ... olarak atama
                         for i, (name, df) in enumerate(available_dfs.items(), start=1):
                             local_vars[f"df{i}"] = df.copy()
                         local_vars["pd"] = pd
@@ -419,7 +403,6 @@ Sadece JSON döndür, başka metin yazma.
                 st.session_state.processing = False
                 st.rerun()
 
-    # Temizleme butonu
     if st.button("🗑️ Sohbet Geçmişini Temizle"):
         st.session_state.messages = []
         st.rerun()
