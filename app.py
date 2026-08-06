@@ -144,8 +144,7 @@ def get_excel_sheets(file_bytes):
     try:
         xl = pd.ExcelFile(io.BytesIO(file_bytes), engine='openpyxl')
         return xl.sheet_names
-    except Exception as e:
-        st.error(f"Sayfalar okunamadı: {e}")
+    except Exception:
         return []
 
 def export_file(df, format_type="xlsx", filename="veri"):
@@ -164,21 +163,37 @@ def export_file(df, format_type="xlsx", filename="veri"):
 
 def generate_plots(df, num_cols, cat_cols):
     figs = []
-    # 1. Sayısal sütun dağılımı (histogram)
-    for col in num_cols[:3]:  # ilk 3 sayısal sütun
-        fig = px.histogram(df, x=col, title=f"{col} Dağılımı", color_discrete_sequence=['#3b82f6'])
-        figs.append(fig)
-    # 2. Korelasyon ısı haritası
-    if len(num_cols) >= 2:
-        corr = df[num_cols].corr()
-        fig = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.columns, colorscale='RdBu_r'))
-        fig.update_layout(title="Korelasyon Matrisi")
-        figs.append(fig)
-    # 3. Kategorik sütun dağılımı
-    for col in cat_cols[:2]:
-        fig = px.bar(df[col].value_counts().reset_index(), x='index', y=col, title=f"{col} Dağılımı",
-                     color_discrete_sequence=['#10b981'])
-        figs.append(fig)
+    try:
+        # 1. Sayısal sütun dağılımı (histogram)
+        for col in num_cols[:3]:
+            if df[col].notna().sum() > 0:
+                fig = px.histogram(df, x=col, title=f"{col} Dağılımı", color_discrete_sequence=['#3b82f6'])
+                figs.append(fig)
+    except Exception as e:
+        pass  # sessiz geç
+
+    try:
+        # 2. Korelasyon ısı haritası
+        if len(num_cols) >= 2 and df[num_cols].shape[0] > 1:
+            corr = df[num_cols].corr()
+            fig = go.Figure(data=go.Heatmap(z=corr.values, x=corr.columns, y=corr.columns, colorscale='RdBu_r'))
+            fig.update_layout(title="Korelasyon Matrisi")
+            figs.append(fig)
+    except Exception:
+        pass
+
+    try:
+        # 3. Kategorik sütun dağılımı (düzeltilmiş)
+        for col in cat_cols[:2]:
+            if df[col].notna().sum() > 0:
+                value_counts = df[col].value_counts().reset_index()
+                value_counts.columns = ['kategori', 'sayi']  # sütun isimlerini sabitle
+                fig = px.bar(value_counts, x='kategori', y='sayi', title=f"{col} Dağılımı",
+                             color_discrete_sequence=['#10b981'])
+                figs.append(fig)
+    except Exception:
+        pass
+
     return figs
 
 # ==========================
@@ -189,7 +204,7 @@ if 'file_data' not in st.session_state:
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'ai_context' not in st.session_state:
-    st.session_state.ai_context = {}  # geçici bağlam
+    st.session_state.ai_context = {}
 if 'processing' not in st.session_state:
     st.session_state.processing = False
 
@@ -287,8 +302,11 @@ if st.session_state.file_data:
                         cat_cols = df.select_dtypes(include=['object', 'category']).columns
                         if len(num_cols) > 0 or len(cat_cols) > 0:
                             figs = generate_plots(df, num_cols, cat_cols)
-                            for fig in figs:
-                                st.plotly_chart(fig, use_container_width=True)
+                            if figs:
+                                for fig in figs:
+                                    st.plotly_chart(fig, use_container_width=True)
+                            else:
+                                st.info("Grafik oluşturulamadı")
                         else:
                             st.info("Grafik oluşturmak için uygun sütun yok")
 
