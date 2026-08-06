@@ -24,19 +24,26 @@ st.set_page_config(page_title="Excel & Veri İşleme", layout="wide", page_icon=
 # HELPERS / CACHE
 # ==========================
 @st.cache_data(ttl=3600)
-def load_file(file_bytes, filename, header_row=0):
+def load_file(file_bytes, filename, header_row=0, sheet_name=0):
     try:
         if filename.lower().endswith('.csv'):
             return pd.read_csv(io.BytesIO(file_bytes), header=header_row)
         else:
-            return pd.read_excel(io.BytesIO(file_bytes), header=header_row)
+            return pd.read_excel(io.BytesIO(file_bytes), header=header_row, sheet_name=sheet_name)
     except Exception as e:
         st.error(f"❌ Dosya hatası: {e}")
         return None
 
+def get_excel_sheets(file_bytes):
+    try:
+        xl = pd.ExcelFile(io.BytesIO(file_bytes))
+        return xl.sheet_names
+    except Exception:
+        return []
+
 def find_similar_columns(col_name, available_cols, threshold=0.7):
     matches = []
-    for col in list(available_cols):   # Index'i listeye çevir
+    for col in list(available_cols):
         ratio = SequenceMatcher(None, str(col_name).lower(), str(col).lower()).ratio()
         if ratio >= threshold:
             matches.append((col, ratio))
@@ -89,14 +96,30 @@ with tab1:
         file_ana = st.file_uploader("Dosya 1", type=["xlsx", "csv"], key="f1")
         if file_ana:
             header_ana = st.number_input("Dosya 1 Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="h1")
+            if file_ana.name.lower().endswith('.xlsx'):
+                sheets = get_excel_sheets(file_ana.read())
+                if sheets:
+                    sheet_ana = st.selectbox("Dosya 1 Sayfa (Sheet)", sheets, index=0, key="s1")
+                else:
+                    sheet_ana = 0
+            else:
+                sheet_ana = 0
     with col2:
         file_gecis = st.file_uploader("Dosya 2", type=["xlsx", "csv"], key="f2")
         if file_gecis:
             header_gecis = st.number_input("Dosya 2 Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="h2")
+            if file_gecis.name.lower().endswith('.xlsx'):
+                sheets = get_excel_sheets(file_gecis.read())
+                if sheets:
+                    sheet_gecis = st.selectbox("Dosya 2 Sayfa (Sheet)", sheets, index=0, key="s2")
+                else:
+                    sheet_gecis = 0
+            else:
+                sheet_gecis = 0
 
     if file_ana and file_gecis:
-        df_ana = load_file(file_ana.read(), file_ana.name, header_row=header_ana)
-        df_gecis = load_file(file_gecis.read(), file_gecis.name, header_row=header_gecis)
+        df_ana = load_file(file_ana.read(), file_ana.name, header_row=header_ana, sheet_name=sheet_ana)
+        df_gecis = load_file(file_gecis.read(), file_gecis.name, header_row=header_gecis, sheet_name=sheet_gecis)
 
         if df_ana is not None and df_gecis is not None:
             k_ana = st.selectbox("Dosya 1 Sütunu", df_ana.columns)
@@ -144,14 +167,30 @@ with tab2:
         file_main = st.file_uploader("Ana Dosya", type=["xlsx", "csv"], key="main")
         if file_main:
             header_main = st.number_input("Ana Dosya Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="hm")
+            if file_main.name.lower().endswith('.xlsx'):
+                sheets = get_excel_sheets(file_main.read())
+                if sheets:
+                    sheet_main = st.selectbox("Ana Dosya Sayfa (Sheet)", sheets, index=0, key="sm")
+                else:
+                    sheet_main = 0
+            else:
+                sheet_main = 0
     with col2:
         file_ref = st.file_uploader("Referans Dosya", type=["xlsx", "csv"], key="ref")
         if file_ref:
             header_ref = st.number_input("Referans Dosya Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="hr")
+            if file_ref.name.lower().endswith('.xlsx'):
+                sheets = get_excel_sheets(file_ref.read())
+                if sheets:
+                    sheet_ref = st.selectbox("Referans Dosya Sayfa (Sheet)", sheets, index=0, key="sr")
+                else:
+                    sheet_ref = 0
+            else:
+                sheet_ref = 0
 
     if file_main and file_ref:
-        df_m = load_file(file_main.read(), file_main.name, header_row=header_main)
-        df_r = load_file(file_ref.read(), file_ref.name, header_row=header_ref)
+        df_m = load_file(file_main.read(), file_main.name, header_row=header_main, sheet_name=sheet_main)
+        df_r = load_file(file_ref.read(), file_ref.name, header_row=header_ref, sheet_name=sheet_ref)
 
         if df_m is not None and df_r is not None:
             key_m = st.selectbox("Ana Dosya Sütunu", df_m.columns)
@@ -187,9 +226,17 @@ with tab3:
     file_clean = st.file_uploader("Temizlenecek Dosya", type=["xlsx", "csv"], key="clean")
     if file_clean:
         header_clean = st.number_input("Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="hc")
+        if file_clean.name.lower().endswith('.xlsx'):
+            sheets = get_excel_sheets(file_clean.read())
+            if sheets:
+                sheet_clean = st.selectbox("Sayfa (Sheet)", sheets, index=0, key="sc")
+            else:
+                sheet_clean = 0
+        else:
+            sheet_clean = 0
 
-    if file_clean:
-        df_c = load_file(file_clean.read(), file_clean.name, header_row=header_clean)
+        df_c = load_file(file_clean.read(), file_clean.name, header_row=header_clean, sheet_name=sheet_clean)
+
         if df_c is not None:
             st.write(f"Boyut: **{len(df_c)}** satır × **{len(df_c.columns)}** sütun")
             op = st.selectbox("İşlem", [
@@ -254,9 +301,17 @@ with tab4:
     file_profile = st.file_uploader("Profil Analizi Dosyası", type=["xlsx", "csv"], key="profile")
     if file_profile:
         header_profile = st.number_input("Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="hp")
+        if file_profile.name.lower().endswith('.xlsx'):
+            sheets = get_excel_sheets(file_profile.read())
+            if sheets:
+                sheet_profile = st.selectbox("Sayfa (Sheet)", sheets, index=0, key="sp")
+            else:
+                sheet_profile = 0
+        else:
+            sheet_profile = 0
 
-    if file_profile:
-        df_p = load_file(file_profile.read(), file_profile.name, header_row=header_profile)
+        df_p = load_file(file_profile.read(), file_profile.name, header_row=header_profile, sheet_name=sheet_profile)
+
         if df_p is not None:
             st.write(f"Boyut: **{len(df_p)}** satır × **{len(df_p.columns)}** sütun")
             if HAS_PROFILE:
@@ -286,13 +341,29 @@ with tab5:
             f1 = st.file_uploader("Dosya 1 (df1)", type=["xlsx", "csv"], key="ai1")
             if f1:
                 h1 = st.number_input("df1 Başlık Satırı", min_value=0, value=0, step=1, key="aih1")
+                if f1.name.lower().endswith('.xlsx'):
+                    sheets = get_excel_sheets(f1.read())
+                    if sheets:
+                        sheet1 = st.selectbox("df1 Sayfa (Sheet)", sheets, index=0, key="ais1")
+                    else:
+                        sheet1 = 0
+                else:
+                    sheet1 = 0
         with col2:
             f2 = st.file_uploader("Dosya 2 (df2)", type=["xlsx", "csv"], key="ai2")
             if f2:
                 h2 = st.number_input("df2 Başlık Satırı", min_value=0, value=0, step=1, key="aih2")
+                if f2.name.lower().endswith('.xlsx'):
+                    sheets = get_excel_sheets(f2.read())
+                    if sheets:
+                        sheet2 = st.selectbox("df2 Sayfa (Sheet)", sheets, index=0, key="ais2")
+                    else:
+                        sheet2 = 0
+                else:
+                    sheet2 = 0
 
-        df1 = load_file(f1.read(), f1.name, header_row=h1) if f1 else None
-        df2 = load_file(f2.read(), f2.name, header_row=h2) if f2 else None
+        df1 = load_file(f1.read(), f1.name, header_row=h1, sheet_name=sheet1) if f1 else None
+        df2 = load_file(f2.read(), f2.name, header_row=h2, sheet_name=sheet2) if f2 else None
 
         if df1 is not None:
             st.write("**df1 Sütunları:**", list(df1.columns))
