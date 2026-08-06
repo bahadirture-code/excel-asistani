@@ -4,6 +4,15 @@ import io
 import plotly.express as px
 from difflib import SequenceMatcher
 import os
+import sys
+
+# Groq kütüphanesi kontrol
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
+    st.warning("⚠️ Groq kütüphanesi kurulu değil. Tab 4'te sadece OpenAI ve Claude kullanılabilir.")
 
 st.set_page_config(page_title="Akıllı Excel & Veri İşleme Platformu", layout="wide", page_icon="⚡")
 
@@ -265,13 +274,22 @@ with tab3:
 # ==========================================
 with tab4:
     st.header("🤖 Yapay Zeka Excel & Analiz Asistanı")
-    st.caption("**Groq (Ücretsiz)** 🎉 | OpenAI | Claude")
     
-    ai_provider = st.radio("Hangi AI kullanmak istiyorsunuz?", [
-        "🎉 Groq (Ücretsiz & Hızlı)", 
-        "OpenAI (GPT-4o-mini)", 
-        "Claude (Anthropic)"
-    ])
+    if GROQ_AVAILABLE:
+        st.caption("**Groq (Ücretsiz)** 🎉 | OpenAI | Claude")
+        ai_options = [
+            "🎉 Groq (Ücretsiz & Hızlı)", 
+            "OpenAI (GPT-4o-mini)", 
+            "Claude (Anthropic)"
+        ]
+    else:
+        st.caption("OpenAI | Claude")
+        ai_options = [
+            "OpenAI (GPT-4o-mini)", 
+            "Claude (Anthropic)"
+        ]
+    
+    ai_provider = st.radio("Hangi AI kullanmak istiyorsunuz?", ai_options)
     
     ai_col1, ai_col2 = st.columns(2)
     with ai_col1:
@@ -320,8 +338,11 @@ Sonucu 'result_df' isimli değişkene ata.
 Kodu ```python ... ``` içerisinde döndür."""
                             
                             if ai_provider == "🎉 Groq (Ücretsiz & Hızlı)":
-                                from groq import Groq
-                                client = Groq(api_key=api_key)
+                                if GROQ_AVAILABLE:
+                                    client = Groq(api_key=api_key)
+                                else:
+                                    st.error("Groq kütüphanesi kurulu değil.")
+                                    st.stop()
                                 
                                 response = client.chat.completions.create(
                                     model="mixtral-8x7b-32768",
