@@ -81,14 +81,11 @@ with tab1:
         df_gecis = load_file(file_gecis.read(), file_gecis.name)
         
         if df_ana is not None and df_gecis is not None:
-            c1, c2 = st.columns(2)
-            with c1:
-                k_ana = st.selectbox("Dosya 1 Sütunu", df_ana.columns)
-            with c2:
-                similar = find_similar_columns(k_ana, df_gecis.columns)
-                k_gecis_default = similar[0][0] if similar else df_gecis.columns[0]
-                k_gecis = st.selectbox("Dosya 2 Sütunu", df_gecis.columns, 
-                                      index=list(df_gecis.columns).index(k_gecis_default))
+            k_ana = st.selectbox("Dosya 1 Sütunu", df_ana.columns)
+            similar = find_similar_columns(k_ana, df_gecis.columns)
+            k_gecis_default = similar[0][0] if similar else df_gecis.columns[0]
+            k_gecis = st.selectbox("Dosya 2 Sütunu", df_gecis.columns, 
+                                  index=list(df_gecis.columns).index(k_gecis_default))
 
             if st.button("🚀 Eşleştir"):
                 df_merged = safe_merge(df_ana.copy(), df_gecis.copy(), k_ana, k_gecis, how='left')
@@ -102,16 +99,6 @@ with tab1:
                     if len(num_cols) >= 2:
                         fig = px.scatter(df_merged, x=num_cols[0], y=num_cols[1], color=k_ana)
                         st.plotly_chart(fig, use_container_width=True)
-
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        data, fname = export_file(df_merged, "xlsx", "sonuc")
-                        if data:
-                            st.download_button("📊 Excel", data, fname)
-                    with c2:
-                        data, fname = export_file(df_merged, "csv", "sonuc")
-                        if data:
-                            st.download_button("📄 CSV", data, fname)
 
 # ==========================================
 # TAB 2: DÜŞEYARA
@@ -166,27 +153,34 @@ with tab3:
                 selected_col = st.selectbox("Sütun Seç", df_c.columns)
                 
             if st.button("⚡ Uygula"):
-    if op == "Mükerrer Satırları Sil":
-        df_c = df_c.drop_duplicates()
-    elif op == "Belirli Sütuna Göre Mükerrerleri Sil" and selected_col:
-        df_c = df_c.drop_duplicates(subset=[selected_col])
-    elif op == "Boşlukları Temizle (TRIM)":
-        for col in df_c.select_dtypes(include=['object']).columns:
-            df_c[col] = df_c[col].astype(str).str.strip()
-    elif op == "BÜYÜK HARFE Çevir":
-        for col in df_c.select_dtypes(include=['object']).columns:
-            df_c[col] = df_c[col].astype(str).str.upper()
-    elif op == "Boş Satırları Sil":
-        df_c = df_c.dropna(how='all')
-    elif op == "Özel Karakterleri Sil":
-        for col in df_c.select_dtypes(include=['object']).columns:
-            df_c[col] = df_c[col].str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
-    elif op == "Tarih Formatlarını Standartlaştır":
-        for col in df_c.select_dtypes(include=['object']).columns:
-            try:
-                df_c[col] = pd.to_datetime(df_c[col], errors='ignore').dt.strftime('%Y-%m-%d')
-            except Exception:
-                pass
+                if op == "Mükerrer Satırları Sil":
+                    df_c = df_c.drop_duplicates()
+                elif op == "Belirli Sütuna Göre Mükerrerleri Sil" and selected_col:
+                    df_c = df_c.drop_duplicates(subset=[selected_col])
+                elif op == "Boşlukları Temizle (TRIM)":
+                    for col in df_c.select_dtypes(include=['object']).columns:
+                        df_c[col] = df_c[col].astype(str).str.strip()
+                elif op == "BÜYÜK HARFE Çevir":
+                    for col in df_c.select_dtypes(include=['object']).columns:
+                        df_c[col] = df_c[col].astype(str).str.upper()
+                elif op == "Boş Satırları Sil":
+                    df_c = df_c.dropna(how='all')
+                elif op == "Özel Karakterleri Sil":
+                    for col in df_c.select_dtypes(include=['object']).columns:
+                        df_c[col] = df_c[col].str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
+                elif op == "Tarih Formatlarını Standartlaştır":
+                    for col in df_c.select_dtypes(include=['object']).columns:
+                        try:
+                            df_c[col] = pd.to_datetime(df_c[col], errors='ignore').dt.strftime('%Y-%m-%d')
+                        except Exception:
+                            pass
 
-    st.success("✅ Tamamlandı!")
-    st.dataframe(df_c.head(15))
+                st.success("✅ Tamamlandı!")
+                st.dataframe(df_c.head(15))
+
+# ==========================================
+# TAB 4: VERİ PROFİLİ
+# ==========================================
+with tab4:
+    st.header("📑 Veri Profili")
+    file_profile = st.file_uploader("Profil Analizi Dosyası", type=["
