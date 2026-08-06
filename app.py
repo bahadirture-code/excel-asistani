@@ -304,21 +304,29 @@ else:
 Mevcut Yüklü DataFrame'ler:
 {df_list_str}
 
-ÖNEMLİ KURALLAR:
-1. Sütun eşleştirmelerinde (Join/Merge/VLOOKUP) büyük-küçük harf farklılığı olabileceğini unutma ('BIRIMNO' vs 'birimno'). Eşleştirme yaparken sütun tiplerini mutlaka `astype(str)` ile eşitle.
-2. Ana dosyadaki değerlerin üzerine yazacak veya yeni sütun aktaracaksan `.map()` veya `pd.merge()` kullan.
-3. Sonuçta oluşan DataFrame'i KESİNLİKLE `result_df` değişkenine ata.
-4. Yanıtını SADECE ve SADECE aşağıdaki JSON formatında ver:
+ÖNEMLİ KOD VE EŞLEŞTİRME KURALLARI:
+1. TIP UYUMSUZLUĞU HATALARINI ÖNLE (ÇOK ÖNEMLİ):
+   - İki dataframe eşleştirilirken (Merge/Join/Map/Lookup), anahtar sütunların veri tiplerini MUTLAKA önce metne (`astype(str)`) çevir!
+   - Örnek eşleştirme öncesi hazırlık:
+     df1['birimno'] = df1['birimno'].astype(str)
+     df2['BIRIMNO'] = df2['BIRIMNO'].astype(str)
+   - Sütun adlarındaki büyük/küçük harf farklarına dikkat et ('BIRIMNO' ile 'birimno').
+
+2. ÇIKTI ŞERTLERİ:
+   - Kodun sonunda oluşan nihai dataframe'i MUTLAKA `result_df` isimli değişkene ata.
+
+3. YANIT FORMATI:
+   Yanıtını YALNIZCA aşağıdaki JSON formatında ver:
 {{
   "status": "success",
-  "explanation": "Yapılan işlemin özeti",
-  "code": "result_df = ... (çalışacak tek parça Python Pandas kuralı)"
+  "explanation": "Yapılan işlemin açıklaması",
+  "code": "# Python kuralı buraya (sütun tiplerini astype(str) yaptıktan sonra işlemi gerçekleştir)"
 }}
 
-Eğer durum net değilse veya ek bilgi gerekiyorsa:
+Eğer komut belirsizse veya ek bilgi gerekiyorsa:
 {{
   "status": "need_clarification",
-  "question": "Kullanıcıya sorulacak netleştirme sorusu"
+  "question": "Kullanıcıya yöneltilecek soru"
 }}
 """
                 response = client.chat.completions.create(
