@@ -8,7 +8,7 @@ try:
 except Exception:
     HAS_GROQ = False
 
-st.set_page_config(page_title="Çoklu Dosya Yükleme + AI", layout="wide", page_icon="📂")
+st.set_page_config(page_title="Çoklu Excel + AI", layout="wide", page_icon="📂")
 
 # ==========================
 # YARDIMCI FONKSİYONLAR
@@ -46,15 +46,13 @@ def export_file(df, format_type="xlsx", filename="veri"):
         return None, None
 
 # ==========================
-# OTURUM DURUMU (SESSION STATE)
+# OTURUM DURUMU
 # ==========================
-if 'dfs' not in st.session_state:
-    st.session_state.dfs = {}  # {dosya_adı: DataFrame}
-if 'file_bytes' not in st.session_state:
-    st.session_state.file_bytes = {}  # {dosya_adı: bytes}
+if 'file_data' not in st.session_state:
+    st.session_state.file_data = {}  # {dosya_adı: {'bytes': bytes, 'sheets': list, 'selected_sheet': str, 'df': DataFrame}}
 
 st.title("📂 Çoklu Dosya Yükleme + 🤖 AI Asistanı")
-st.markdown("Birden fazla Excel/CSV yükleyin, önizleyin ve yapay zeka ile sorgulayın.")
+st.markdown("Excel/CSV yükleyin, sayfa seçin, veriyi inceleyin ve AI ile sorgulayın.")
 
 # ==========================
 # DOSYA YÜKLEME
@@ -68,44 +66,68 @@ uploaded_files = st.file_uploader(
 
 if uploaded_files:
     for file in uploaded_files:
-        if file.name not in st.session_state.dfs:
+        if file.name not in st.session_state.file_data:
             file_bytes = file.read()
-            st.session_state.file_bytes[file.name] = file_bytes
-
-            # Excel ise ilk sayfayı al (isteğe bağlı: sheet seçimi eklenebilir)
+            sheets = []
+            selected_sheet = None
             if file.name.lower().endswith('.xlsx'):
                 sheets = get_excel_sheets(file_bytes)
                 if sheets:
-                    # Varsayılan olarak ilk sayfayı al
-                    df = load_file(file_bytes, file.name, sheet_name=sheets[0])
-                else:
-                    df = None
-            else:
-                df = load_file(file_bytes, file.name)
-
-            if df is not None:
-                st.session_state.dfs[file.name] = df
-                st.success(f"✅ {file.name} yüklendi (satır: {df.shape[0]}, sütun: {df.shape[1]})")
-            else:
-                st.error(f"❌ {file.name} yüklenemedi.")
+                    selected_sheet = sheets[0]  # varsayılan ilk sayfa
+            # CSV için sheets boş, selected_sheet = None
+            st.session_state.file_data[file.name] = {
+                'bytes': file_bytes,
+                'sheets': sheets,
+                'selected_sheet': selected_sheet,
+                'df': None  # henüz yüklenmedi
+            }
 
 # ==========================
-# YÜKLENEN DOSYALARI LİSTELE VE ÖNİZLE
+# HER DOSYA İÇİN SAYFA SEÇİMİ VE VERİ YÜKLEME
 # ==========================
-if st.session_state.dfs:
+if st.session_state.file_data:
     st.subheader("📁 Yüklenen Dosyalar")
-    for name, df in st.session_state.dfs.items():
-        with st.expander(f"📄 {name} ({df.shape[0]} satır × {df.shape[1]} sütun)"):
-            st.dataframe(df.head(10), use_container_width=True)
-            col1, col2 = st.columns(2)
-            with col1:
-                excel_data, excel_fname = export_file(df, "xlsx", name.replace('.', '_'))
-                if excel_data:
-                    st.download_button(f"📊 {name} Excel indir", excel_data, excel_fname, key=f"excel_{name}")
-            with col2:
-                csv_data, csv_fname = export_file(df, "csv", name.replace('.', '_'))
-                if csv_data:
-                    st.download_button(f"📄 {name} CSV indir", csv_data, csv_fname, key=f"csv_{name}")
+    for name, data in st.session_state.file_data.items():
+        with st.expander(f"📄 {name}", expanded=False):
+            # Sayfa seçimi (sadece Excel için)
+            if data['sheets']:
+                # Mevcut seçili sayfayı bul
+                current_sheet = data['selected_sheet'] if data['selected_sheet'] else data['sheets'][0]
+                selected_sheet = st.selectbox(
+                    f"Sayfa seçin ({name})",
+                    options=data['sheets'],
+                    index=data['sheets'].index(current_sheet) if current_sheet in data['sheets'] else 0,
+                    key=f"sheet_{name}"
+                )
+                # Eğer seçili sayfa değiştiyse veya df henüz yüklenmemişse yeniden yükle
+                if data['selected_sheet'] != selected_sheet or data['df'] is None:
+                    data['selected_sheet'] = selected_sheet
+                    data['df'] = load_file(data['bytes'], name, sheet_name=selected_sheet)
+                    if data['df'] is not None:
+                        st.success(f"✅ {name} - '{selected_sheet}' sayfası yüklendi ({data['df'].shape[0]} satır × {data['df'].shape[1]} sütun)")
+                    else:
+                        st.error(f"❌ {name} - '{selected_sheet}' yüklenemedi.")
+            else:
+                # CSV dosyası - direkt yükle
+                if data['df'] is None:
+                    data['df'] = load_file(data['bytes'], name)
+                    if data['df'] is not None:
+                        st.success(f"✅ {name} yüklendi ({data['df'].shape[0]} satır × {data['df'].shape[1]} sütun)")
+
+            # Veriyi göster
+            if data['df'] is not None:
+                st.dataframe(data['df'].head(10), use_container_width=True)
+                col1, col2 = st.columns(2)
+                with col1:
+                    excel_data, excel_fname = export_file(data['df'], "xlsx", name.replace('.', '_'))
+                    if excel_data:
+                        st.download_button(f"📊 {name} Excel indir", excel_data, excel_fname, key=f"excel_{name}")
+                with col2:
+                    csv_data, csv_fname = export_file(data['df'], "csv", name.replace('.', '_'))
+                    if csv_data:
+                        st.download_button(f"📄 {name} CSV indir", csv_data, csv_fname, key=f"csv_{name}")
+            else:
+                st.warning(f"⚠️ {name} için veri yüklenemedi.")
 
 # ==========================
 # GROQ AI ASİSTANI
@@ -116,26 +138,27 @@ st.header("🤖 Veri Asistanı (Groq ile Doğal Dil)")
 if not HAS_GROQ:
     st.warning("Groq kütüphanesi yüklü değil. `pip install groq` ile yükleyin.")
 else:
-    if not st.session_state.dfs:
-        st.info("Önce yukarıdan dosya yükleyin.")
+    # Yüklenmiş ve df'i olan dosyaları filtrele
+    available_dfs = {name: data['df'] for name, data in st.session_state.file_data.items() if data['df'] is not None}
+    if not available_dfs:
+        st.info("Önce yukarıdan dosya yükleyin ve bir sayfa seçin.")
     else:
-        # Kullanıcının hangi dosyaları kullanacağını seçmesi
         secili_dosyalar = st.multiselect(
             "Hangi dosyaları kullanmak istersiniz? (birden fazla seçebilirsiniz)",
-            options=list(st.session_state.dfs.keys()),
-            default=list(st.session_state.dfs.keys())[:2] if len(st.session_state.dfs) >= 2 else list(st.session_state.dfs.keys())
+            options=list(available_dfs.keys()),
+            default=list(available_dfs.keys())[:2] if len(available_dfs) >= 2 else list(available_dfs.keys())
         )
 
         if secili_dosyalar:
             # Seçilen dosyaları df1, df2, ... olarak hazırla
             df_dict = {}
             for idx, name in enumerate(secili_dosyalar, start=1):
-                df_dict[f"df{idx}"] = st.session_state.dfs[name].copy()
+                df_dict[f"df{idx}"] = available_dfs[name].copy()
 
             # Kullanıcıya sütun bilgilerini göster
             st.write("**Seçilen dosyalar ve sütunları:**")
             for name in secili_dosyalar:
-                st.write(f"- **{name}**: {list(st.session_state.dfs[name].columns)}")
+                st.write(f"- **{name}** (sayfa: {st.session_state.file_data[name]['selected_sheet']}): {list(available_dfs[name].columns)}")
 
             user_prompt = st.text_area(
                 "📝 Ne yapmak istiyorsunuz? (Türkçe veya İngilizce)",
@@ -153,7 +176,6 @@ else:
                         else:
                             with st.spinner("⏳ Groq ile iletişim kuruluyor..."):
                                 client = Groq(api_key=api_key)
-                                # Sistem mesajında mevcut df'leri bildir
                                 df_list_str = ", ".join([f"{k}: {list(v.columns)}" for k, v in df_dict.items()])
                                 sys_msg = f"""Python Pandas uzmanısın.
 Mevcut DataFrame'ler:
@@ -180,7 +202,6 @@ result_df = df1.groupby('kategori').agg({'satis': 'sum'})
                                 else:
                                     code_clean = code_res.strip()
 
-                                # Kod çalıştır
                                 local_vars = {**df_dict, "pd": pd}
                                 exec(code_clean, {}, local_vars)
                                 result_df = local_vars.get("result_df")
@@ -191,7 +212,6 @@ result_df = df1.groupby('kategori').agg({'satis': 'sum'})
                                     with st.expander("🛠️ Oluşturulan Kod"):
                                         st.code(code_clean, language="python")
 
-                                    # Sonucu indir
                                     col1, col2 = st.columns(2)
                                     with col1:
                                         data, fname = export_file(result_df, "xlsx", "ai_sonuc")
