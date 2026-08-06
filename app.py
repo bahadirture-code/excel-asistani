@@ -70,7 +70,7 @@ st.title("⚡ Excel & Veri İşleme Platformu")
 st.markdown("**Ücretsiz** - Merge, Temizleme, Profil Analizi, Groq AI")
 
 # ==========================
-# SEKMELER (TABS) – Burada tab5 tanımlı
+# SEKMELER (TABS)
 # ==========================
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📋 Excel Eşleştirme",
@@ -294,16 +294,24 @@ with tab5:
                         else:
                             with st.spinner("⏳ Groq ile iletişim kuruluyor..."):
                                 client = Groq(api_key=api_key)
+                                # DÜZELTİLDİ: ... kaldırıldı, örnek kod eklendi
                                 sys_msg = f"""Python Pandas uzmanısın.
 df1: {list(df1.columns)}{f", df2: {list(df2.columns)}" if df2 is not None else ""}
 Sadece çalışan Python kodu döndür. Sonucu 'result_df' değişkenine ata.
-Kod bloğunu ```python ... ``` içine al."""
+Kod bloğunu ```python ``` etiketleri arasına yaz.
+Örnek:
+```python
+result_df = df1.groupby('kategori').agg({'satis': 'sum'})
+```"""
                                 response = client.chat.completions.create(
-    model="llama-3.3-70b-versatile",  # veya "llama-3.1-8b-instant"
-    messages=[...],
-    temperature=0.3,
-    max_tokens=1500
-)
+                                    model="llama-3.3-70b-versatile",  # Değiştirildi!
+                                    messages=[
+                                        {"role": "system", "content": sys_msg},
+                                        {"role": "user", "content": user_prompt}
+                                    ],
+                                    temperature=0.3,
+                                    max_tokens=1500
+                                )
                                 code_res = response.choices[0].message.content
                                 if "```python" in code_res:
                                     code_clean = code_res.split("```python")[1].split("```")[0].strip()
