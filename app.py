@@ -5,10 +5,15 @@ import io
 st.set_page_config(page_title="Excel & Raporlama Merkezi", layout="wide", page_icon="📊")
 
 st.title("📊 Akıllı Excel & Raporlama Merkezi")
-st.markdown("Formüllerle ve makrolarla uğraşmadan tüm veri eşleştirme ve temizleme işlemlerinizi buradan yapabilirsiniz.")
+st.markdown("Formüllerle uğraşmadan tüm veri işlemlerinizi yapın veya Yapay Zekaya ne yapması gerektiğini Türkçe söyleyin.")
 
-# Tab Yapısı
-tab1, tab2, tab3 = st.tabs(["📋 Excel Eşleştirme", "🔗 Genel DÜŞEYARA / Eşleştirme", "🛠️ Veri Temizleme & Makrolar"])
+# Tab Yapısı (Yapay Zeka Asistanı Eklendi)
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📋 Excel Eşleştirme", 
+    "🔗 Genel DÜŞEYARA / Eşleştirme", 
+    "🛠️ Veri Temizleme & Makrolar",
+    "💬 Yapay Zeka Excel Asistanı"
+])
 
 # ==========================================
 # TAB 1: EXCEL EŞLEŞTİRME MODÜLÜ
@@ -26,11 +31,9 @@ with tab1:
 
     if file_ana and file_gecis:
         try:
-            # Okuma İşlemleri
             df_ana = pd.read_excel(file_ana)
             df_gecis = pd.read_excel(file_gecis)
             
-            # birimno / BIRIMNO sütunlarını arama ve yakalama
             col_ana_key = [c for c in df_ana.columns if str(c).strip().lower() == 'birimno']
             col_gecis_key = [c for c in df_gecis.columns if str(c).strip().lower() == 'birimno']
             
@@ -41,10 +44,7 @@ with tab1:
                 df_ana[k_ana] = df_ana[k_ana].astype(str).str.strip()
                 df_gecis[k_gecis] = df_gecis[k_gecis].astype(str).str.strip()
                 
-                # Eşleştirilecek sütunlar kontrolü
                 gecis_sub = df_gecis[[k_gecis, 'ANKET_DURUM', 'DETAY']].drop_duplicates(subset=[k_gecis])
-                
-                # Merge (DÜŞEYARA Karşılığı)
                 df_merged = pd.merge(df_ana, gecis_sub, left_on=k_ana, right_on=k_gecis, how='left', suffixes=('_eski', ''))
                 
                 if 'ANKET_DURUM_eski' in df_merged.columns:
@@ -56,18 +56,15 @@ with tab1:
 
                 st.success("✅ Eşleştirme Başarıyla Tamamlandı!")
                 
-                # KPI Kartları
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("Toplam Anket", len(df_merged))
                 c2.metric("Tamamlanan (TAM)", (df_merged['ANKET_DURUM'] == 'TAM').sum())
                 c3.metric("Kalan (KALAN)", (df_merged['ANKET_DURUM'] == 'KALAN').sum())
                 c4.metric("Boş / Diğer", df_merged['ANKET_DURUM'].isna().sum())
 
-                # Tablo Gösterimi
                 st.subheader("İşlenmiş Veri Önizleme")
                 st.dataframe(df_merged.head(10), use_container_width=True)
 
-                # Excel İndirme Butonu
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df_merged.to_excel(writer, index=False)
@@ -79,12 +76,12 @@ with tab1:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
             else:
-                st.warning("Her iki dosyada da 'birimno' sütunu bulunamadı. Lütfen sütun isimlerini kontrol edin.")
+                st.warning("Her iki dosyada da 'birimno' sütunu bulunamadı.")
         except Exception as e:
             st.error(f"Hata oluştu: {e}")
 
 # ==========================================
-# TAB 2: GENEL VLOOKUP / EŞLEŞTİRME MODÜLÜ
+# TAB 2: GENEL VLOOKUP MODÜLÜ
 # ==========================================
 with tab2:
     st.header("Her Türlü İki Dosyayı Eşleştir (VLOOKUP / XLOOKUP)")
@@ -120,7 +117,7 @@ with tab2:
             st.download_button("📥 Birleştirilmiş Dosyayı İndir", out_gen.getvalue(), "Birlestirilmis_Veri.xlsx")
 
 # ==========================================
-# TAB 3: VERİ TEMİZLEME & MAKROLAR
+# TAB 3: VERİ TEMİZLEME MODÜLÜ
 # ==========================================
 with tab3:
     st.header("Otomatik Veri Temizleme Araçları")
@@ -154,3 +151,66 @@ with tab3:
             with pd.ExcelWriter(out_cln, engine='xlsxwriter') as writer:
                 df_c.to_excel(writer, index=False)
             st.download_button("📥 Temizlenmiş Dosyayı İndir", out_cln.getvalue(), "Temizlenmis_Veri.xlsx")
+
+# ==========================================
+# TAB 4: YAPAY ZEKA EXCEL ASİSTANI
+# ==========================================
+with tab4:
+    st.header("💬 Doğal Dille Excel İşleme (Yapay Zeka)")
+    st.caption("Excel dosyanızı yükleyin ve ne yapılmasını istediğinizi kendi kelimelerinizle yazın.")
+    
+    api_key = st.text_input("OpenAI API Anahtarınızı Girin:", type="password")
+    ai_file = st.file_uploader("Üzerinde Çalışılacak Excel Dosyasını Yükleyin", type=["xlsx", "csv"], key="ai_file")
+    
+    if ai_file:
+        df_ai = pd.read_excel(ai_file) if ai_file.name.endswith('xlsx') else pd.read_csv(ai_file)
+        st.write("Sütunlarınız:", list(df_ai.columns))
+        
+        user_prompt = st.text_area("Yapay Zekaya İsteğinizi Yazın:", placeholder="Örn: 'anketör' sütunundaki isimlerin baş harflerini büyük yap ve 'ANKET_DURUM' sütunu 'TAM' olanları getir.")
+        
+        if st.button("Yapay Zekaya Yaptır"):
+            if not api_key:
+                st.error("Lütfen bir API Anahtarı girin.")
+            elif not user_prompt:
+                st.warning("Lütfen bir komut yazın.")
+            else:
+                try:
+                    import openai
+                    client = openai.OpenAI(api_key=api_key)
+                    
+                    system_instructions = f"""
+                    Sen bir Python Pandas veri işleme asistanısın. Kullanıcı sana bir veri seti (df) ve yapmak istediği işlemi söyleyecek.
+                    Sadece çalıştırılabilir Python pandas kodu döndür. 
+                    Mevcut sütunlar: {list(df_ai.columns)}
+                    İşlenecek veri tablosu değişken adı 'df'dir. 
+                    Kod blokları (```python ... ```) içinde yaz.
+                    """
+                    
+                    response = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "system", "content": system_instructions},
+                            {"role": "user", "content": user_prompt}
+                        ]
+                    )
+                    
+                    code_res = response.choices[0].message.content
+                    
+                    # Kod temizleme
+                    code_clean = code_res.split("```python")[1].split("```")[0].strip() if "```python" in code_res else code_res.strip()
+                    
+                    # Kodu df üzerinde çalıştır
+                    local_vars = {"df": df_ai.copy(), "pd": pd}
+                    exec(code_clean, {}, local_vars)
+                    df_res = local_vars["df"]
+                    
+                    st.success("✅ Yapay zeka isteğinizi başarıyla tamamladı!")
+                    st.dataframe(df_res.head(10))
+                    
+                    out_ai = io.BytesIO()
+                    with pd.ExcelWriter(out_ai, engine='xlsxwriter') as writer:
+                        df_res.to_excel(writer, index=False)
+                    st.download_button("📥 Sonuç Dosyasını İndir", out_ai.getvalue(), "AI_Islenmis_Veri.xlsx")
+                    
+                except Exception as e:
+                    st.error(f"İşlem sırasında bir hata oluştu: {e}")
