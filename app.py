@@ -24,21 +24,19 @@ st.set_page_config(page_title="Excel & Veri İşleme", layout="wide", page_icon=
 # HELPERS / CACHE
 # ==========================
 @st.cache_data(ttl=3600)
-def load_file(file_bytes, filename):
+def load_file(file_bytes, filename, header_row=0):
     try:
         if filename.lower().endswith('.csv'):
-            return pd.read_csv(io.BytesIO(file_bytes))
+            return pd.read_csv(io.BytesIO(file_bytes), header=header_row)
         else:
-            return pd.read_excel(io.BytesIO(file_bytes))
+            return pd.read_excel(io.BytesIO(file_bytes), header=header_row)
     except Exception as e:
         st.error(f"❌ Dosya hatası: {e}")
         return None
 
-# find_similar_columns cache KALDIRILDI - Index hash sorunu nedeniyle
 def find_similar_columns(col_name, available_cols, threshold=0.7):
     matches = []
-    # available_cols bir Index olabilir, listeye çevir
-    for col in list(available_cols):
+    for col in list(available_cols):   # Index'i listeye çevir
         ratio = SequenceMatcher(None, str(col_name).lower(), str(col).lower()).ratio()
         if ratio >= threshold:
             matches.append((col, ratio))
@@ -89,12 +87,16 @@ with tab1:
     col1, col2 = st.columns(2)
     with col1:
         file_ana = st.file_uploader("Dosya 1", type=["xlsx", "csv"], key="f1")
+        if file_ana:
+            header_ana = st.number_input("Dosya 1 Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="h1")
     with col2:
         file_gecis = st.file_uploader("Dosya 2", type=["xlsx", "csv"], key="f2")
+        if file_gecis:
+            header_gecis = st.number_input("Dosya 2 Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="h2")
 
     if file_ana and file_gecis:
-        df_ana = load_file(file_ana.read(), file_ana.name)
-        df_gecis = load_file(file_gecis.read(), file_gecis.name)
+        df_ana = load_file(file_ana.read(), file_ana.name, header_row=header_ana)
+        df_gecis = load_file(file_gecis.read(), file_gecis.name, header_row=header_gecis)
 
         if df_ana is not None and df_gecis is not None:
             k_ana = st.selectbox("Dosya 1 Sütunu", df_ana.columns)
@@ -137,12 +139,19 @@ with tab1:
 # ==========================================
 with tab2:
     st.header("🔗 DÜŞEYARA")
-    file_main = st.file_uploader("Ana Dosya", type=["xlsx", "csv"], key="main")
-    file_ref = st.file_uploader("Referans Dosya", type=["xlsx", "csv"], key="ref")
+    col1, col2 = st.columns(2)
+    with col1:
+        file_main = st.file_uploader("Ana Dosya", type=["xlsx", "csv"], key="main")
+        if file_main:
+            header_main = st.number_input("Ana Dosya Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="hm")
+    with col2:
+        file_ref = st.file_uploader("Referans Dosya", type=["xlsx", "csv"], key="ref")
+        if file_ref:
+            header_ref = st.number_input("Referans Dosya Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="hr")
 
     if file_main and file_ref:
-        df_m = load_file(file_main.read(), file_main.name)
-        df_r = load_file(file_ref.read(), file_ref.name)
+        df_m = load_file(file_main.read(), file_main.name, header_row=header_main)
+        df_r = load_file(file_ref.read(), file_ref.name, header_row=header_ref)
 
         if df_m is not None and df_r is not None:
             key_m = st.selectbox("Ana Dosya Sütunu", df_m.columns)
@@ -176,9 +185,11 @@ with tab2:
 with tab3:
     st.header("🛠️ Veri Temizleme")
     file_clean = st.file_uploader("Temizlenecek Dosya", type=["xlsx", "csv"], key="clean")
+    if file_clean:
+        header_clean = st.number_input("Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="hc")
 
     if file_clean:
-        df_c = load_file(file_clean.read(), file_clean.name)
+        df_c = load_file(file_clean.read(), file_clean.name, header_row=header_clean)
         if df_c is not None:
             st.write(f"Boyut: **{len(df_c)}** satır × **{len(df_c.columns)}** sütun")
             op = st.selectbox("İşlem", [
@@ -241,9 +252,11 @@ with tab4:
     if not HAS_PROFILE:
         st.info("Profil analizi için 'ydata-profiling' ve 'streamlit-pandas-profiling' kütüphaneleri gerekli. requirements.txt'e ekleyip yükleyin.")
     file_profile = st.file_uploader("Profil Analizi Dosyası", type=["xlsx", "csv"], key="profile")
+    if file_profile:
+        header_profile = st.number_input("Başlık Satırı (0'dan başlar)", min_value=0, value=0, step=1, key="hp")
 
     if file_profile:
-        df_p = load_file(file_profile.read(), file_profile.name)
+        df_p = load_file(file_profile.read(), file_profile.name, header_row=header_profile)
         if df_p is not None:
             st.write(f"Boyut: **{len(df_p)}** satır × **{len(df_p.columns)}** sütun")
             if HAS_PROFILE:
@@ -268,14 +281,18 @@ with tab5:
     if not HAS_GROQ:
         st.warning("Groq kütüphanesi yüklü değil. `requirements.txt`'e `groq` ekleyip yeniden deploy edin.")
     else:
-        c1, c2 = st.columns(2)
-        with c1:
+        col1, col2 = st.columns(2)
+        with col1:
             f1 = st.file_uploader("Dosya 1 (df1)", type=["xlsx", "csv"], key="ai1")
-        with c2:
+            if f1:
+                h1 = st.number_input("df1 Başlık Satırı", min_value=0, value=0, step=1, key="aih1")
+        with col2:
             f2 = st.file_uploader("Dosya 2 (df2)", type=["xlsx", "csv"], key="ai2")
+            if f2:
+                h2 = st.number_input("df2 Başlık Satırı", min_value=0, value=0, step=1, key="aih2")
 
-        df1 = load_file(f1.read(), f1.name) if f1 else None
-        df2 = load_file(f2.read(), f2.name) if f2 else None
+        df1 = load_file(f1.read(), f1.name, header_row=h1) if f1 else None
+        df2 = load_file(f2.read(), f2.name, header_row=h2) if f2 else None
 
         if df1 is not None:
             st.write("**df1 Sütunları:**", list(df1.columns))
@@ -295,7 +312,6 @@ with tab5:
                         else:
                             with st.spinner("⏳ Groq ile iletişim kuruluyor..."):
                                 client = Groq(api_key=api_key)
-                                # SİSTEM MESAJI - DÜZELTİLDİ (model güncel, ... kaldırıldı, örnek kod eklendi)
                                 sys_msg = f"""Python Pandas uzmanısın.
 df1: {list(df1.columns)}{f", df2: {list(df2.columns)}" if df2 is not None else ""}
 Sadece çalışan Python kodu döndür. Sonucu 'result_df' değişkenine ata.
@@ -305,7 +321,7 @@ Kod bloğunu ```python ``` etiketleri arasına yaz.
 result_df = df1.groupby('kategori').agg({'satis': 'sum'})
 ```"""
                                 response = client.chat.completions.create(
-                                    model="llama-3.3-70b-versatile",  # GÜNCELLENDİ
+                                    model="llama-3.3-70b-versatile",
                                     messages=[
                                         {"role": "system", "content": sys_msg},
                                         {"role": "user", "content": user_prompt}
