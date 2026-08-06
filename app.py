@@ -4,9 +4,9 @@ import io
 import plotly.express as px
 from difflib import SequenceMatcher
 import os
-from groq import Groq
 
 st.set_page_config(page_title="Akıllı Excel & Veri İşleme Platformu", layout="wide", page_icon="⚡")
+
 
 # ==========================================
 # CACHING & PERFORMANCE
