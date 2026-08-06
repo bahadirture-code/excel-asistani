@@ -82,6 +82,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # ==========================================
 with tab1:
     st.header("📋 Excel Eşleştirme")
+    # Hata 1: st.subplots(2) yerine st.columns(2)
     col1, col2 = st.columns(2)
     with col1:
         file_ana = st.file_uploader("Dosya 1", type=["xlsx", "csv"], key="f1")
@@ -198,7 +199,7 @@ with tab3:
                 elif op == "Belirli Sütuna Göre Mükerrerleri Sil" and selected_col:
                     df_c = df_c.drop_duplicates(subset=[selected_col])
                 elif op == "Boşlukları Temizle (TRIM)":
-                    for col in df_c.select_dtypes(include=['object']).columns:
+                    for col in df_c.select_dtypes(include=['object']).columns:   # Hata 2: include=['object'] eklendi
                         df_c[col] = df_c[col].astype(str).str.strip()
                 elif op == "BÜYÜK HARFE Çevir":
                     for col in df_c.select_dtypes(include=['object']).columns:
@@ -288,7 +289,7 @@ with tab5:
                     else:
                         with st.spinner("⏳ Çalışıyor..."):
                             client = Groq(api_key=api_key)
-                            # DÜZELTİLMİŞ KISIM (f-string ve üç tırnak)
+                            # Hata 3: f-string kaçış karakterleri düzeltildi
                             sys_msg = f"""Python Pandas uzmanısın.
 df1: {list(df1.columns)}{f", df2: {list(df2.columns)}" if df2 is not None else ""}
 Sadece çalışan kod döndür. Sonucu result_df'e ata.

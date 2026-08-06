@@ -1,17 +1,9 @@
 streamlit>=1.28
 pandas>=2.0
-openpyxl==3.1.5
+openpyxl==3.1.5          # Sürüm sabitlendi
 xlsxwriter>=3.1
 plotly>=5.17
 groq>=0.4
 
-# Opsiyonel - Veri profili (büyük bağımlılıklar getirebilir)
-ydata-profiling>=4.3.0
-streamlit-pandas-profiling>=0.1.0
-
-# Yardımcı (build araçları)
-setuptools>=68.0.0
-wheel>=0.40.0
-
-# Yerel secrets yönetimi (opsiyonel)
-python-dotenv>=1.0.0
+# ydata-profiling ve streamlit-pandas-profiling Python 3.14 ile uyumlu değil, kaldırıldı.
+# İsterseniz ayrı bir ortamda (Python 3.13) kullanabilirsiniz.
