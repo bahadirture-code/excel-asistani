@@ -166,20 +166,27 @@ with tab3:
                 selected_col = st.selectbox("Sütun Seç", df_c.columns)
                 
             if st.button("⚡ Uygula"):
-                if op == "Mükerrer Satırları Sil":
-                    df_c = df_c.drop_duplicates()
-                elif op == "Belirli Sütuna Göre Mükerrerleri Sil" and selected_col:
-                    df_c = df_c.drop_duplicates(subset=[selected_col])
-                elif op == "Boşlukları Temizle (TRIM)":
-                    for col in df_c.select_dtypes(include='object').columns:
-                        df_c[col] = df_c[col].astype(str).str.strip()
-                elif op == "BÜYÜK HARFE Çevir":
-                    for col in df_c.select_dtypes(include='object').columns:
-                        df_c[col] = df_c[col].astype(str).str.upper()
-                elif op == "Boş Satırları Sil":
-                    df_c = df_c.dropna(how='all')
-                elif op == "Özel Karakterleri Sil":
-                    for col in df_c.select_dtypes(include='object').columns:
-                        df_c[col] = df_c[col].str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
-                elif op == "Tarih Formatlarını Standartlaştır":
-                    for col in df_c.select_dtypes(include
+    if op == "Mükerrer Satırları Sil":
+        df_c = df_c.drop_duplicates()
+    elif op == "Belirli Sütuna Göre Mükerrerleri Sil" and selected_col:
+        df_c = df_c.drop_duplicates(subset=[selected_col])
+    elif op == "Boşlukları Temizle (TRIM)":
+        for col in df_c.select_dtypes(include=['object']).columns:
+            df_c[col] = df_c[col].astype(str).str.strip()
+    elif op == "BÜYÜK HARFE Çevir":
+        for col in df_c.select_dtypes(include=['object']).columns:
+            df_c[col] = df_c[col].astype(str).str.upper()
+    elif op == "Boş Satırları Sil":
+        df_c = df_c.dropna(how='all')
+    elif op == "Özel Karakterleri Sil":
+        for col in df_c.select_dtypes(include=['object']).columns:
+            df_c[col] = df_c[col].str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
+    elif op == "Tarih Formatlarını Standartlaştır":
+        for col in df_c.select_dtypes(include=['object']).columns:
+            try:
+                df_c[col] = pd.to_datetime(df_c[col], errors='ignore').dt.strftime('%Y-%m-%d')
+            except Exception:
+                pass
+
+    st.success("✅ Tamamlandı!")
+    st.dataframe(df_c.head(15))
