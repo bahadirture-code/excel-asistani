@@ -267,9 +267,9 @@ else:
                 </div>
             ''', unsafe_allow_html=True)
 
-        # Son üretilen başarılı sonucu sabit olarak alt kısımda tut
+        # Son üretilen başarılı sonucu sabit olarak alt kısımda göster
         if st.session_state.last_result_df is not None:
-            st.markdown("### 🎯 Son AI İşlem Çıktısı")
+            st.markdown("### 🎯 Son AI İşlem Çıktısı (Tüm Sütunlar)")
             st.dataframe(st.session_state.last_result_df.head(10), use_container_width=True)
             col1, col2 = st.columns(2)
             with col1:
@@ -296,7 +296,7 @@ else:
                 client = Groq(api_key=api_key)
 
                 # ============================================================
-                # SİSTEM MESAJI (PROMPT)
+                # ÖZEL SİSTEM MESAJI (TAM DOSYA KORUMA KURALLARI)
                 # ============================================================
                 df_desc = []
                 for i, (name, data) in enumerate(st.session_state.file_data.items(), start=1):
@@ -313,29 +313,37 @@ else:
 Mevcut Yüklü DataFrame'ler:
 {df_list_str}
 
-ÇOK ÖNEMLİ KOD VE EŞLEŞTİRME KURALLARI:
-1. TIP UYUMSUZLUĞU HATALARINI ÖNLE:
-   - İki dataframe eşleştirilirken (Merge/Join/Map/Lookup), anahtar sütunların veri tiplerini MUTLAKA metne (`astype(str)`) çevir!
-   - Örnek eşleştirme öncesi hazırlık:
-     df1['birimno'] = df1['birimno'].astype(str)
-     df2['BIRIMNO'] = df2['BIRIMNO'].astype(str)
-   - Sütun adlarındaki büyük/küçük harf farklarına dikkat et ('BIRIMNO' vs 'birimno').
+KRİTİK KURALLAR:
+1. ANA DOSYANIN TÜM SÜTUNLARINI KORU (KIRPMA YAPMA):
+   - Bir dosyadan diğerine veri çekerken (Merge/Lookup/Map), hedef ana dataframe'in TÜM MEVCUT SÜTUNLARINI KORUMALISIN.
+   - Sadece istenen sütunları güncelle veya ekle. Asla `result_df`'i yalnızca 2-3 sütuna düşürme!
+   - Örnek yaklaşım (Map):
+     `df1['birimno'] = df1['birimno'].astype(str)`
+     `df2['BIRIMNO'] = df2['BIRIMNO'].astype(str)`
+     `durum_map = dict(zip(df2['BIRIMNO'], df2['ANKET_DURUM']))`
+     `detay_map = dict(zip(df2['BIRIMNO'], df2['DETAY']))`
+     `df1['ANKET_DURUM'] = df1['birimno'].map(durum_map)`
+     `df1['DETAY'] = df1['birimno'].map(detay_map)`
+     `result_df = df1`
 
-2. ÇIKTI ŞARTLARI:
-   - Kodun sonunda oluşan nihai dataframe'i MUTLAKA `result_df` isimli değişkene ata.
+2. VERİ TİPİ DÖNÜŞÜMÜ:
+   - Eşleştirme yapmadan önce eşleşecek ID/Birimno sütunlarını MUTLAKA `astype(str)` ile metne çevir.
 
-3. YANIT FORMATI:
+3. ÇIKTI ŞARTLARI:
+   - Nihai dataframe'i MUTLAKA `result_df` isimli değişken olarak tanımla.
+
+4. YANIT FORMATI:
    Yanıtını YALNIZCA aşağıdaki JSON formatında ver:
 {{
   "status": "success",
   "explanation": "Yapılan işlemin açıklaması",
-  "code": "# Python Pandas kodu buraya"
+  "code": "# Python kuralı"
 }}
 
-Eğer komut belirsizse veya ek bilgi gerekiyorsa:
+Eğer durum net değilse:
 {{
   "status": "need_clarification",
-  "question": "Kullanıcıya yöneltilecek soru"
+  "question": "Netleştirme sorusu"
 }}
 """
                 response = client.chat.completions.create(
@@ -344,7 +352,7 @@ Eğer komut belirsizse veya ek bilgi gerekiyorsa:
                         {"role": "system", "content": sys_msg},
                         {"role": "user", "content": f"Kullanıcı komutu: {prompt}"}
                     ],
-                    temperature=0.2,
+                    temperature=0.1,
                     max_tokens=2000,
                     response_format={"type": "json_object"}
                 )
@@ -375,7 +383,6 @@ Eğer komut belirsizse veya ek bilgi gerekiyorsa:
                         result_df = local_vars.get("result_df")
                         
                         if result_df is not None and isinstance(result_df, pd.DataFrame):
-                            # KALICI KAYIT: Sonucu oturum durumuna kaydet
                             st.session_state.last_result_df = result_df
                             st.session_state.messages.append({"role": "assistant", "content": f"✅ {explanation}"})
                             st.session_state.processing = False
