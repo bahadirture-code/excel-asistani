@@ -439,7 +439,8 @@ class CommandEngine:
         )
 
     # ========== YENİ: execute_python ==========
-    def execute_python(self, df, step):
+       def execute_python(self, df, step):
+        import warnings
         warnings.filterwarnings('ignore')
         
         code = step.get("code", "")
@@ -455,6 +456,15 @@ class CommandEngine:
             "kaynak_df": st.session_state.get("kaynak_df", None)
         }
         
+        # Hata ayıklama için kodu ve değişkenleri logla
+        print("--- EXECUTE_PYTHON ---")
+        print("Code:", code)
+        print("df columns:", df.columns.tolist())
+        if local_vars["kaynak_df"] is not None:
+            print("kaynak_df columns:", local_vars["kaynak_df"].columns.tolist())
+        else:
+            print("kaynak_df: None")
+        
         try:
             exec(code, {}, local_vars)
             if "result" in local_vars:
@@ -462,8 +472,9 @@ class CommandEngine:
                 if isinstance(result_df, pd.DataFrame):
                     return result_df
                 else:
-                    raise Exception("Kod sonucu bir DataFrame olmalı!")
+                    raise Exception(f"Kod sonucu bir DataFrame değil, tip: {type(result_df)}")
             else:
                 raise Exception("Kod sonunda 'result' değişkeni tanımlanmamış!")
         except Exception as e:
-            raise Exception(f"Python kodu çalıştırılırken hata: {str(e)}")
+            # Hatayı detaylı fırlat
+            raise Exception(f"Python kodu hatası: {str(e)}\nKod:\n{code}")
