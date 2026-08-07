@@ -12,20 +12,23 @@ class AIParser:
         with open(prompt_path, "r", encoding="utf-8") as f:
             self.system_prompt = f.read()
 
-    def parse(self, prompt, dataframe, temperature=0.0, max_tokens=2048):
+    def parse(self, prompt, dataframe, temperature=0.1, max_tokens=2048):
         columns = [str(c) for c in dataframe.columns]
         sample = dataframe.head(3).fillna("").astype(str)
         preview = sample.to_dict(orient="records")
+        column_types = {str(col): str(dtype) for col, dtype in dataframe.dtypes.items()}
 
         user_prompt = f"""
-EXCEL SÜTUNLARI
-{json.dumps(columns, ensure_ascii=False)}
+EXCEL SÜTUNLARI VE TİPLERİ
+{json.dumps(column_types, ensure_ascii=False)}
 
 İLK 3 SATIR
 {json.dumps(preview, ensure_ascii=False)}
 
 KULLANICI İSTEĞİ
 {prompt}
+
+ÖNEMLİ: Çıktı JSON içinde mutlaka kullanıcıya gösterilmek üzere anlaşılır Türkçe bir "plan" açıklaması ekle.
 """
         response = self.client.chat.completions.create(
             model="llama-3.3-70b-versatile",
