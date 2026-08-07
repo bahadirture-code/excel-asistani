@@ -25,7 +25,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Session state başlangıçları
+# Session state
 if "current_df" not in st.session_state:
     st.session_state.current_df = None
 if "ana_df" not in st.session_state:
@@ -81,11 +81,9 @@ def redo():
 with st.sidebar:
     st.title("🤖 AI Excel Asistanı")
     
-    # ----- ANA DOSYA -----
+    # ANA DOSYA
     ana_dosya = st.file_uploader("📄 Ana Dosyayı Yükle (HBA)", type=["xlsx", "xls", "csv"], key="ana_upload")
-    
     if ana_dosya is not None:
-        # CSV ise direkt oku
         if ana_dosya.name.endswith(".csv"):
             st.session_state.ana_df = pd.read_csv(ana_dosya)
             st.session_state.ana_sheet = None
@@ -94,32 +92,25 @@ with st.sidebar:
                 st.session_state.current_df = st.session_state.ana_df.copy()
                 st.session_state.uploaded_name = ana_dosya.name
         else:
-            # Excel ise sayfa listesini göster
             excel_file = pd.ExcelFile(ana_dosya)
             sheet_names = excel_file.sheet_names
-            
-            # Varsayılan olarak ilk sayfayı seç
             default_sheet = sheet_names[0] if sheet_names else None
             if st.session_state.ana_sheet is None or st.session_state.ana_sheet not in sheet_names:
                 st.session_state.ana_sheet = default_sheet
-            
             secilen_sheet = st.selectbox(
                 "📑 Ana Dosya Sayfası Seç",
                 sheet_names,
                 index=sheet_names.index(st.session_state.ana_sheet) if st.session_state.ana_sheet in sheet_names else 0,
                 key="ana_sheet_selector"
             )
-            
             if secilen_sheet != st.session_state.ana_sheet:
                 st.session_state.ana_sheet = secilen_sheet
-                # Sayfa değiştiğinde yeniden oku
                 st.session_state.ana_df = pd.read_excel(ana_dosya, sheet_name=secilen_sheet)
                 if st.session_state.current_df is None or st.session_state.uploaded_name == ana_dosya.name:
                     st.session_state.current_df = st.session_state.ana_df.copy()
                     st.session_state.uploaded_name = f"{ana_dosya.name} - {secilen_sheet}"
                 st.success(f"✅ Ana dosya yüklendi: {ana_dosya.name} / Sayfa: {secilen_sheet}")
             else:
-                # İlk yükleme veya sayfa değişmemiş
                 if st.session_state.ana_df is None:
                     st.session_state.ana_df = pd.read_excel(ana_dosya, sheet_name=secilen_sheet)
                     if st.session_state.current_df is None:
@@ -127,9 +118,8 @@ with st.sidebar:
                         st.session_state.uploaded_name = f"{ana_dosya.name} - {secilen_sheet}"
                     st.success(f"✅ Ana dosya yüklendi: {ana_dosya.name} / Sayfa: {secilen_sheet}")
     
-    # ----- KAYNAK DOSYA -----
+    # KAYNAK DOSYA
     kaynak_dosya = st.file_uploader("📄 Kaynak Dosyayı Yükle (geçiş)", type=["xlsx", "xls", "csv"], key="kaynak_upload")
-    
     if kaynak_dosya is not None:
         if kaynak_dosya.name.endswith(".csv"):
             st.session_state.kaynak_df = pd.read_csv(kaynak_dosya)
@@ -138,18 +128,15 @@ with st.sidebar:
         else:
             excel_file = pd.ExcelFile(kaynak_dosya)
             sheet_names = excel_file.sheet_names
-            
             default_sheet = sheet_names[0] if sheet_names else None
             if st.session_state.kaynak_sheet is None or st.session_state.kaynak_sheet not in sheet_names:
                 st.session_state.kaynak_sheet = default_sheet
-            
             secilen_sheet = st.selectbox(
                 "📑 Kaynak Dosya Sayfası Seç",
                 sheet_names,
                 index=sheet_names.index(st.session_state.kaynak_sheet) if st.session_state.kaynak_sheet in sheet_names else 0,
                 key="kaynak_sheet_selector"
             )
-            
             if secilen_sheet != st.session_state.kaynak_sheet:
                 st.session_state.kaynak_sheet = secilen_sheet
                 st.session_state.kaynak_df = pd.read_excel(kaynak_dosya, sheet_name=secilen_sheet)
@@ -162,10 +149,10 @@ with st.sidebar:
     st.divider()
     
     c1, c2 = st.columns(2)
-    if c1.button("↩ Undo", use_container_width=True):
+    if c1.button("↩ Undo", width='stretch'):
         undo()
         st.rerun()
-    if c2.button("↪ Redo", use_container_width=True):
+    if c2.button("↪ Redo", width='stretch'):
         redo()
         st.rerun()
 
@@ -189,21 +176,21 @@ with st.sidebar:
             excel_buffer.getvalue(),
             file_name="AI_EXCEL.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
+            width='stretch'
         )
         st.download_button(
             "📥 CSV",
             st.session_state.current_df.to_csv(index=False).encode("utf-8"),
             file_name="AI_EXCEL.csv",
             mime="text/csv",
-            use_container_width=True
+            width='stretch'
         )
         st.download_button(
             "📥 JSON",
             st.session_state.current_df.to_json(orient="records", force_ascii=False, indent=2),
             file_name="AI_EXCEL.json",
             mime="application/json",
-            use_container_width=True
+            width='stretch'
         )
 
 # ======================================================
@@ -246,7 +233,6 @@ with tab1:
                 try:
                     if st.session_state.current_df is None and st.session_state.ana_df is not None:
                         st.session_state.current_df = st.session_state.ana_df.copy()
-                    
                     if st.session_state.current_df is None:
                         st.error("Lütfen önce bir ana dosya yükleyin.")
                         st.stop()
@@ -277,7 +263,8 @@ with tab1:
 with tab2:
     st.subheader("📄 Veri")
     if st.session_state.current_df is not None:
-        st.dataframe(st.session_state.current_df, use_container_width=True, height=700)
+        # Arrow hatasını önlemek için tüm sütunları string'e çevirerek göster (sadece görüntüleme)
+        st.dataframe(st.session_state.current_df.astype(str), width='stretch', height=700)
     else:
         st.info("Veri bulunamadı. Lütfen dosya yükleyin.")
 
@@ -306,7 +293,7 @@ with tab3:
             st.plotly_chart(fig, use_container_width=True)
 
             st.subheader("İstatistik")
-            st.dataframe(numeric.describe().T, use_container_width=True)
+            st.dataframe(numeric.describe().T, width='stretch')
         else:
             st.warning("Sayısal kolon bulunamadı.")
 
