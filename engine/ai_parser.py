@@ -1,3 +1,4 @@
+import os
 import json
 from groq import Groq
 
@@ -6,7 +7,9 @@ class AIParser:
 
     def __init__(self, api_key):
         self.client = Groq(api_key=api_key)
-        with open("system_prompt.txt", "r", encoding="utf-8") as f:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        prompt_path = os.path.join(base_dir, "system_prompt.txt")
+        with open(prompt_path, "r", encoding="utf-8") as f:
             self.system_prompt = f.read()
 
     def parse(self, prompt, dataframe, temperature=0.0, max_tokens=2048):
