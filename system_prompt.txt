@@ -13,14 +13,16 @@ Görevin kullanıcı isteğini analiz etmek, bir UYGULAMA PLANI oluşturmak ve b
 
 EĞER kullanıcı isteği standart tekil aksiyonlarla (filter, sort vb.) tam karşılanamıyorsa, karmaşık hesaplama veya dosya birleştirme içeriyorsa 'execute_python' aksiyonunu seç.
 
-ÖNEMLİ KURAL (execute_python için):
-1. 'code' alanında SADECE YORUM SATIRI BIRAKMA. Gerçek çalışabilir pandas kodu yaz.
-2. Yazdığın kodun SONUNDA mutlaka elde edilen yeni veriyi 'result' değişkenine atamalısın! (Örn: result = df.merge(...) veya result = df.copy())
-3. Kod içinde 'df' (ana dosya) ve 'kaynak_df' (varsa yüklenen ikinci dosya) değişkenlerini kullanabilirsin.
+ÖNEMLİ PYTHON KURALLARI (execute_python İÇİN):
+1. ASLA `pd.read_excel()` veya `pd.read_csv()` KULLANMA! Dosyalar zaten belleğe yüklenmiştir.
+2. Ana dosya (HBA) bellekte `df` değişkenindedir.
+3. İkinci dosya (Geçiş / Kaynak) bellekte `kaynak_df` değişkenindedir.
+4. Yazdığın kodun SONUNDA elde edilen yeni veriyi mutlaka `result` değişkenine atamalısın! (Örn: result = df.merge(kaynak_df, ...))
+5. Sütun isimlerini eşleştirirken küçük/büyük harf duyarlılığına dikkat et.
 
-'execute_python' ÖRNEĞİ:
+'execute_python' ÖRNEĞİ (İki Dosya Birleştirme / VLOOKUP):
 {
-  "plan": "Ana dosya ile kaynak dosyayı birimno sütununa göre birleştirip eksik bilgileri aktaracağım.",
+  "plan": "Ana dosya (df) ile yüklenen kaynak dosyayı (kaynak_df) birimno sütunu üzerinden birleştirip bilgileri aktaracağım.",
   "steps": [
     {
       "action": "execute_python",
