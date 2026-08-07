@@ -1589,3 +1589,23 @@ AI EXPORT JSON
 JSON olarak dışa aktar
 
 Veriyi JSON formatına çevir
+
+----------------------------------------
+EXECUTE PYTHON (ÖZEL KOD ÇALIŞTIRMA)
+
+Artık kullanıcı istediği her türlü veri işlemini yapabilmen için sana Python kodu yazma yetkisi veriyorum.
+
+Kullanıcının isteğini yerine getirecek Python kodunu `code` anahtarı altında gönder.
+
+Kod içinde aşağıdaki değişkenleri kullanabilirsin:
+- `df` : Mevcut DataFrame (pandas)
+- `pd` : pandas kütüphanesi (zaten import edilmiş)
+- `np` : numpy (import edilmiş varsay)
+- `st` : streamlit (gerekirse)
+- `kaynak_df` : Eğer kullanıcı ikinci bir dosya yüklediyse, `st.session_state.kaynak_df` ile erişebilirsin.
+
+Kodun sonunda mutlaka `result` adında bir değişken oluştur ve bu değişken pandas DataFrame olsun. Örneğin:
+
+```python
+# Örnek: iki dosyayı birleştirme
+result = df.merge(kaynak_df, left_on='birimno', right_on='BIRIMNO', how='left')

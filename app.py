@@ -29,6 +29,10 @@ st.set_page_config(
 
 if "current_df" not in st.session_state:
     st.session_state.current_df = None
+if "ana_df" not in st.session_state:
+    st.session_state.ana_df = None
+if "kaynak_df" not in st.session_state:
+    st.session_state.kaynak_df = None
 if "history" not in st.session_state:
     st.session_state.history = []
 if "redo" not in st.session_state:
@@ -72,38 +76,31 @@ def redo():
 # ======================================================
 
 with st.sidebar:
-    st.title("🤖 AI Excel")
+    st.title("🤖 AI Excel Asistanı")
     
-    # ÇOKLU DOSYA YÜKLEME (accept_multiple_files=True)
-    uploaded_files = st.file_uploader(
-        "Excel Dosyaları (birden fazla seçebilirsiniz)",
-        type=["xlsx", "xls", "csv"],
-        accept_multiple_files=True
-    )
-    
-    if uploaded_files:
-        # Dosya isimlerini birleştirip göster
-        file_names = [f.name for f in uploaded_files]
-        st.session_state.uploaded_name = ", ".join(file_names)
-        
-        # Tüm dosyaları oku
-        dfs = []
-        for file in uploaded_files:
-            if file.name.endswith(".csv"):
-                df = pd.read_csv(file)
-            else:
-                df = pd.read_excel(file)
-            dfs.append(df)
-        
-        # Tek bir DataFrame'de birleştir (satır bazında)
-        if len(dfs) == 1:
-            combined_df = dfs[0]
+    # Ana dosya
+    ana_dosya = st.file_uploader("📄 Ana Dosyayı Yükle (HBA)", type=["xlsx", "xls", "csv"], key="ana_upload")
+    if ana_dosya is not None:
+        if ana_dosya.name.endswith(".csv"):
+            st.session_state.ana_df = pd.read_csv(ana_dosya)
         else:
-            combined_df = pd.concat(dfs, ignore_index=True)
-        
-        st.session_state.current_df = combined_df
-
+            st.session_state.ana_df = pd.read_excel(ana_dosya)
+        st.success(f"✅ Ana dosya yüklendi: {ana_dosya.name}")
+        if st.session_state.current_df is None:
+            st.session_state.current_df = st.session_state.ana_df.copy()
+            st.session_state.uploaded_name = ana_dosya.name
+    
+    # Kaynak dosya
+    kaynak_dosya = st.file_uploader("📄 Kaynak Dosyayı Yükle (geçiş)", type=["xlsx", "xls", "csv"], key="kaynak_upload")
+    if kaynak_dosya is not None:
+        if kaynak_dosya.name.endswith(".csv"):
+            st.session_state.kaynak_df = pd.read_csv(kaynak_dosya)
+        else:
+            st.session_state.kaynak_df = pd.read_excel(kaynak_dosya)
+        st.success(f"✅ Kaynak dosya yüklendi: {kaynak_dosya.name}")
+    
     st.divider()
+    
     c1, c2 = st.columns(2)
     if c1.button("↩ Undo", use_container_width=True):
         undo()
@@ -121,6 +118,34 @@ with st.sidebar:
         st.metric("Boş Hücre", int(st.session_state.current_df.isna().sum().sum()))
         st.metric("Tekrar Eden", int(st.session_state.current_df.duplicated().sum()))
 
+    st.divider()
+    st.subheader("💾 Dışa Aktar")
+    if st.session_state.current_df is not None:
+        excel_buffer = io.BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+            st.session_state.current_df.to_excel(writer, index=False)
+        st.download_button(
+            "📥 Excel",
+            excel_buffer.getvalue(),
+            file_name="AI_EXCEL.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+        st.download_button(
+            "📥 CSV",
+            st.session_state.current_df.to_csv(index=False).encode("utf-8"),
+            file_name="AI_EXCEL.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+        st.download_button(
+            "📥 JSON",
+            st.session_state.current_df.to_json(orient="records", force_ascii=False, indent=2),
+            file_name="AI_EXCEL.json",
+            mime="application/json",
+            use_container_width=True
+        )
+
 # ======================================================
 # ANA EKRAN
 # ======================================================
@@ -136,7 +161,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
 with tab1:
     st.subheader("🤖 AI Excel Asistanı")
     if st.session_state.current_df is None:
-        st.info("Lütfen önce bir Excel dosyası yükleyin.")
+        st.info("Lütfen önce bir ana dosya yükleyin.")
     else:
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
@@ -159,6 +184,14 @@ with tab1:
 
             with st.spinner("AI düşünüyor..."):
                 try:
+                    # Eğer current_df yoksa ana_df'den al
+                    if st.session_state.current_df is None and st.session_state.ana_df is not None:
+                        st.session_state.current_df = st.session_state.ana_df.copy()
+                    
+                    if st.session_state.current_df is None:
+                        st.error("Lütfen önce bir ana dosya yükleyin.")
+                        st.stop()
+                    
                     save_history()
                     data = parser.parse(
                         prompt,
@@ -187,7 +220,7 @@ with tab2:
     if st.session_state.current_df is not None:
         st.dataframe(st.session_state.current_df, use_container_width=True, height=700)
     else:
-        st.info("Veri bulunamadı.")
+        st.info("Veri bulunamadı. Lütfen dosya yükleyin.")
 
 # ======================================================
 # TAB 3 - DASHBOARD
@@ -254,63 +287,6 @@ with tab5:
                 else:
                     st.markdown("### Hata")
                     st.code(log)
-
-# ======================================================
-# EXPORT
-# ======================================================
-
-if st.session_state.current_df is not None:
-    with st.sidebar:
-        st.divider()
-        st.subheader("💾 Dışa Aktar")
-        excel_buffer = io.BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-            st.session_state.current_df.to_excel(writer, index=False)
-        st.download_button(
-            "📥 Excel",
-            excel_buffer.getvalue(),
-            file_name="AI_EXCEL.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-        st.download_button(
-            "📥 CSV",
-            st.session_state.current_df.to_csv(index=False).encode("utf-8"),
-            file_name="AI_EXCEL.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-        st.download_button(
-            "📥 JSON",
-            st.session_state.current_df.to_json(orient="records", force_ascii=False, indent=2),
-            file_name="AI_EXCEL.json",
-            mime="application/json",
-            use_container_width=True
-        )
-
-# ======================================================
-# AI HIZLI KOMUTLAR
-# ======================================================
-
-with st.sidebar:
-    st.divider()
-    st.subheader("⚡ Hazır Komutlar")
-    commands = [
-        "Veriyi analiz et",
-        "Boş satırları sil",
-        "Tekrar eden kayıtları kaldır",
-        "Kolonları analiz et",
-        "En uygun grafiği öner",
-        "Dashboard oluştur",
-        "Veri kalitesini analiz et",
-        "Eksik verileri göster",
-        "İstatistikleri çıkar",
-        "Veriyi optimize et"
-    ]
-    for cmd in commands:
-        if st.button(cmd, use_container_width=True, key=f"btn_{cmd}"):
-            st.session_state.quick_command = cmd
-            st.rerun()
 
 # ======================================================
 # FOOTER
