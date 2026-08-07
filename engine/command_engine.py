@@ -243,14 +243,9 @@ class CommandEngine:
                 result = self.ai_numeric_statistics(result, step)
             elif action == "ai_export_json":
                 result = self.ops.ai_export_json(result)
-
-            # ========== YENİ ACTION: execute_python ==========
+            # ========== YENİ: execute_python ==========
             elif action == "execute_python":
                 result = self.execute_python(result, step)
-
-            # ========== YENİ ACTION: merge ==========
-            elif action == "merge":
-                result = self.merge(result, step)
 
         return result
 
@@ -443,52 +438,14 @@ class CommandEngine:
             self.find(step["column"], df)
         )
 
-    #########################################################
-    # YENİ MERGE METODU
-    #########################################################
-
-    def merge(self, df, step):
-        """İki DataFrame'i birleştirir (VLOOKUP işlevi görür)."""
-        kaynak_df = st.session_state.get("kaynak_df")
-        if kaynak_df is None:
-            raise Exception("Kaynak dosya yüklenmemiş! Lütfen önce kaynak dosyayı yükleyin.")
-
-        left_on = step.get("left_on")
-        right_on = step.get("right_on")
-        columns = step.get("columns", [])
-        how = step.get("how", "left")
-
-        if not left_on or not right_on:
-            raise Exception("left_on ve right_on belirtilmeli!")
-
-        # Kaynak DataFrame'den sadece gerekli sütunları al
-        if columns:
-            # right_on sütununu da ekle
-            kaynak_subset = kaynak_df[[right_on] + columns]
-        else:
-            kaynak_subset = kaynak_df
-
-        # Birleştir
-        merged = df.merge(kaynak_subset, left_on=left_on, right_on=right_on, how=how)
-
-        # right_on sütununu temizle (eğer left_on ile aynı değilse)
-        if right_on in merged.columns and right_on != left_on:
-            merged = merged.drop(columns=[right_on])
-
-        return merged
-
-    #########################################################
-    # YENİ EXECUTE_PYTHON METODU
-    #########################################################
-
+    # ========== YENİ: execute_python ==========
     def execute_python(self, df, step):
-        """Kullanıcı tarafından istenen özel Python kodunu çalıştırır."""
         warnings.filterwarnings('ignore')
-
+        
         code = step.get("code", "")
         if not code:
             raise Exception("Python kodu boş!")
-
+        
         # Çalışma ortamı
         local_vars = {
             "df": df,
@@ -497,17 +454,15 @@ class CommandEngine:
             "st": st,
             "kaynak_df": st.session_state.get("kaynak_df", None)
         }
-
+        
         try:
-            # Kodu çalıştır
             exec(code, {}, local_vars)
-            # Sonuçta 'result' değişkeni olmalı
             if "result" in local_vars:
                 result_df = local_vars["result"]
                 if isinstance(result_df, pd.DataFrame):
                     return result_df
                 else:
-                    raise Exception("Kod sonucu bir pandas DataFrame olmalı!")
+                    raise Exception("Kod sonucu bir DataFrame olmalı!")
             else:
                 raise Exception("Kod sonunda 'result' değişkeni tanımlanmamış!")
         except Exception as e:
