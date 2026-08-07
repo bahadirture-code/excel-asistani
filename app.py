@@ -2,13 +2,22 @@ import io
 import json
 import traceback
 from copy import deepcopy
+import sys
+import os
 
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 
-from engine.ai_parser import AIParser
-from engine.command_engine import CommandEngine
+# Streamlit Cloud uyumluluğu için sys.path ekle
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    from engine.ai_parser import AIParser
+    from engine.command_engine import CommandEngine
+except ImportError as e:
+    st.error(f"❌ Engine modülleri yüklenemedi: {str(e)}")
+    st.stop()
 
 
 st.set_page_config(
