@@ -263,7 +263,6 @@ with tab1:
 with tab2:
     st.subheader("📄 Veri")
     if st.session_state.current_df is not None:
-        # Arrow hatasını önlemek için tüm sütunları string'e çevirerek göster (sadece görüntüleme)
         st.dataframe(st.session_state.current_df.astype(str), width='stretch', height=700)
     else:
         st.info("Veri bulunamadı. Lütfen dosya yükleyin.")
