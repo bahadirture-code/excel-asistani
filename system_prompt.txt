@@ -1680,6 +1680,9 @@ JSON olarak dışa aktar
 Veriyi JSON formatına çevir
 
 ----------------------------------------
+ÖNEMLİ: Birleştirme (merge) yaparken, önce ana dosyada (df) ve kaynak dosyada (kaynak_df) hangi sütunların olduğunu kontrol et. Kullanıcının belirttiği sütun isimleri tam olarak eşleşmiyorsa, doğru sütun isimlerini bulmak için df.columns ve kaynak_df.columns kullan.
+
+Örnek: Kullanıcı "birimno" dediğinde, df'de 'birimno' var mı kontrol et. Kaynakta 'BIRIMNO' var mı kontrol et. Eğer farklıysa, doğru olanı kullan.
 EXECUTE PYTHON (ÖZEL KOD ÇALIŞTIRMA)
 
 Artık kullanıcı istediği her türlü veri işlemini yapabilmen için sana Python kodu yazma yetkisi veriyorum.
