@@ -210,11 +210,29 @@ with tab1:
     if st.session_state.current_df is None:
         st.info("Lütfen önce bir ana dosya yükleyin.")
     else:
+        # HIZLI İŞLEM BUTONLARI
+        st.markdown("⚡ **Hızlı Şablon İşlemleri:**")
+        b1, b2, b3, b4 = st.columns(4)
+        if b1.button("🧹 Otomatik Temizle", use_container_width=True):
+            st.session_state.quick_command = "Otomatik temizle"
+            st.rerun()
+        if b2.button("📑 Mükerrerleri Sil", use_container_width=True):
+            st.session_state.quick_command = "Aynı satırları sil"
+            st.rerun()
+        if b3.button("📊 Veri Profilini Çıkar", use_container_width=True):
+            st.session_state.quick_command = "Veri profilini çıkar"
+            st.rerun()
+        if b4.button("🔗 Kolon İsimlerini Temizle", use_container_width=True):
+            st.session_state.quick_command = "Kolon adlarını temizle"
+            st.rerun()
+        
+        st.divider()
+
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        temperature = st.slider("Temperature", 0.0, 1.0, 0.0, 0.1)
+        temperature = st.slider("Temperature", 0.0, 1.0, 0.1, 0.1)
         max_tokens = st.slider("Max Token", 256, 4096, 2048, 256)
 
         prompt = None
