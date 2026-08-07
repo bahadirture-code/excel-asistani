@@ -9,7 +9,6 @@ import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 
-# Streamlit Cloud uyumluluğu için sys.path ekle
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
@@ -19,7 +18,6 @@ except ImportError as e:
     st.error(f"❌ Engine modülleri yüklenemedi: {str(e)}")
     st.stop()
 
-
 st.set_page_config(
     page_title="AI Excel Asistanı",
     page_icon="🤖",
@@ -27,6 +25,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Session state başlangıçları
 if "current_df" not in st.session_state:
     st.session_state.current_df = None
 if "ana_df" not in st.session_state:
@@ -47,6 +46,10 @@ if "uploaded_name" not in st.session_state:
     st.session_state.uploaded_name = ""
 if "quick_command" not in st.session_state:
     st.session_state.quick_command = ""
+if "ana_sheet" not in st.session_state:
+    st.session_state.ana_sheet = None
+if "kaynak_sheet" not in st.session_state:
+    st.session_state.kaynak_sheet = None
 
 api_key = st.secrets["GROQ_API_KEY"]
 parser = AIParser(api_key)
@@ -78,26 +81,83 @@ def redo():
 with st.sidebar:
     st.title("🤖 AI Excel Asistanı")
     
-    # Ana dosya
+    # ----- ANA DOSYA -----
     ana_dosya = st.file_uploader("📄 Ana Dosyayı Yükle (HBA)", type=["xlsx", "xls", "csv"], key="ana_upload")
+    
     if ana_dosya is not None:
+        # CSV ise direkt oku
         if ana_dosya.name.endswith(".csv"):
             st.session_state.ana_df = pd.read_csv(ana_dosya)
+            st.session_state.ana_sheet = None
+            st.success(f"✅ Ana CSV dosyası yüklendi: {ana_dosya.name}")
+            if st.session_state.current_df is None:
+                st.session_state.current_df = st.session_state.ana_df.copy()
+                st.session_state.uploaded_name = ana_dosya.name
         else:
-            st.session_state.ana_df = pd.read_excel(ana_dosya)
-        st.success(f"✅ Ana dosya yüklendi: {ana_dosya.name}")
-        if st.session_state.current_df is None:
-            st.session_state.current_df = st.session_state.ana_df.copy()
-            st.session_state.uploaded_name = ana_dosya.name
+            # Excel ise sayfa listesini göster
+            excel_file = pd.ExcelFile(ana_dosya)
+            sheet_names = excel_file.sheet_names
+            
+            # Varsayılan olarak ilk sayfayı seç
+            default_sheet = sheet_names[0] if sheet_names else None
+            if st.session_state.ana_sheet is None or st.session_state.ana_sheet not in sheet_names:
+                st.session_state.ana_sheet = default_sheet
+            
+            secilen_sheet = st.selectbox(
+                "📑 Ana Dosya Sayfası Seç",
+                sheet_names,
+                index=sheet_names.index(st.session_state.ana_sheet) if st.session_state.ana_sheet in sheet_names else 0,
+                key="ana_sheet_selector"
+            )
+            
+            if secilen_sheet != st.session_state.ana_sheet:
+                st.session_state.ana_sheet = secilen_sheet
+                # Sayfa değiştiğinde yeniden oku
+                st.session_state.ana_df = pd.read_excel(ana_dosya, sheet_name=secilen_sheet)
+                if st.session_state.current_df is None or st.session_state.uploaded_name == ana_dosya.name:
+                    st.session_state.current_df = st.session_state.ana_df.copy()
+                    st.session_state.uploaded_name = f"{ana_dosya.name} - {secilen_sheet}"
+                st.success(f"✅ Ana dosya yüklendi: {ana_dosya.name} / Sayfa: {secilen_sheet}")
+            else:
+                # İlk yükleme veya sayfa değişmemiş
+                if st.session_state.ana_df is None:
+                    st.session_state.ana_df = pd.read_excel(ana_dosya, sheet_name=secilen_sheet)
+                    if st.session_state.current_df is None:
+                        st.session_state.current_df = st.session_state.ana_df.copy()
+                        st.session_state.uploaded_name = f"{ana_dosya.name} - {secilen_sheet}"
+                    st.success(f"✅ Ana dosya yüklendi: {ana_dosya.name} / Sayfa: {secilen_sheet}")
     
-    # Kaynak dosya
+    # ----- KAYNAK DOSYA -----
     kaynak_dosya = st.file_uploader("📄 Kaynak Dosyayı Yükle (geçiş)", type=["xlsx", "xls", "csv"], key="kaynak_upload")
+    
     if kaynak_dosya is not None:
         if kaynak_dosya.name.endswith(".csv"):
             st.session_state.kaynak_df = pd.read_csv(kaynak_dosya)
+            st.session_state.kaynak_sheet = None
+            st.success(f"✅ Kaynak CSV dosyası yüklendi: {kaynak_dosya.name}")
         else:
-            st.session_state.kaynak_df = pd.read_excel(kaynak_dosya)
-        st.success(f"✅ Kaynak dosya yüklendi: {kaynak_dosya.name}")
+            excel_file = pd.ExcelFile(kaynak_dosya)
+            sheet_names = excel_file.sheet_names
+            
+            default_sheet = sheet_names[0] if sheet_names else None
+            if st.session_state.kaynak_sheet is None or st.session_state.kaynak_sheet not in sheet_names:
+                st.session_state.kaynak_sheet = default_sheet
+            
+            secilen_sheet = st.selectbox(
+                "📑 Kaynak Dosya Sayfası Seç",
+                sheet_names,
+                index=sheet_names.index(st.session_state.kaynak_sheet) if st.session_state.kaynak_sheet in sheet_names else 0,
+                key="kaynak_sheet_selector"
+            )
+            
+            if secilen_sheet != st.session_state.kaynak_sheet:
+                st.session_state.kaynak_sheet = secilen_sheet
+                st.session_state.kaynak_df = pd.read_excel(kaynak_dosya, sheet_name=secilen_sheet)
+                st.success(f"✅ Kaynak dosya yüklendi: {kaynak_dosya.name} / Sayfa: {secilen_sheet}")
+            else:
+                if st.session_state.kaynak_df is None:
+                    st.session_state.kaynak_df = pd.read_excel(kaynak_dosya, sheet_name=secilen_sheet)
+                    st.success(f"✅ Kaynak dosya yüklendi: {kaynak_dosya.name} / Sayfa: {secilen_sheet}")
     
     st.divider()
     
@@ -184,7 +244,6 @@ with tab1:
 
             with st.spinner("AI düşünüyor..."):
                 try:
-                    # Eğer current_df yoksa ana_df'den al
                     if st.session_state.current_df is None and st.session_state.ana_df is not None:
                         st.session_state.current_df = st.session_state.ana_df.copy()
                     
