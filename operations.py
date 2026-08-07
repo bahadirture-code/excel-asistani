@@ -2,7 +2,6 @@ import pandas as pd
 
 class DataOperations:
 
-    # ------------------ Filtre, Sıralama, Gruplama ------------------
     def filter_rows(self, df, column, operator, value):
         if operator == ">":
             return df[df[column] > value]
@@ -30,7 +29,6 @@ class DataOperations:
     def group_count(self, df, group_column):
         return df.groupby(group_column).size().reset_index(name='count')
 
-    # ------------------ Temizleme ------------------
     def remove_duplicates(self, df):
         return df.drop_duplicates()
 
@@ -76,7 +74,6 @@ class DataOperations:
         df[new_col] = df[col1].astype(str) + " " + df[col2].astype(str)
         return df
 
-    # ------------------ Hesaplama ------------------
     def calculate(self, df, column, operation):
         if operation == "sum":
             return df[column].sum()
@@ -109,7 +106,6 @@ class DataOperations:
     def pivot(self, df, index, values, aggfunc="sum"):
         return df.pivot_table(index=index, values=values, aggfunc=aggfunc).reset_index()
 
-    # ------------------ Metin İşlemleri ------------------
     def uppercase(self, df, column):
         df = df.copy()
         df[column] = df[column].astype(str).str.upper()
@@ -130,7 +126,7 @@ class DataOperations:
         df[column] = df[column].astype(str).str.replace(" ", "", regex=False)
         return df
 
-    def split_column(self, df, step):
+    def split_column(self, step, df):
         column = step.get("column")
         separator = step.get("separator", " ")
         new_columns = step.get("new_columns", [])
@@ -167,7 +163,6 @@ class DataOperations:
             df[column] = df[column].astype(str) + text
         return df
 
-    # ------------------ Tip Dönüşümleri ------------------
     def convert_dtype(self, df, step):
         column = step.get("column")
         dtype = step.get("dtype")
@@ -182,7 +177,6 @@ class DataOperations:
             df[column] = pd.to_datetime(df[column])
         return df
 
-    # ------------------ Eksik Veri ------------------
     def fill_forward(self, df):
         return df.ffill()
 
@@ -192,7 +186,6 @@ class DataOperations:
     def remove_null_columns(self, df):
         return df.dropna(axis=1, how="all")
 
-    # ------------------ Sıralama / Endeks ------------------
     def sort_multiple(self, df, step):
         columns = step.get("columns")
         ascending = step.get("ascending", True)
@@ -207,7 +200,6 @@ class DataOperations:
     def reverse(self, df):
         return df.iloc[::-1].reset_index(drop=True)
 
-    # ------------------ Sayısal Filtreleme ------------------
     def remove_negative(self, df, column):
         return df[df[column] >= 0]
 
@@ -220,7 +212,6 @@ class DataOperations:
         max_val = step.get("max")
         return df[(df[column] >= min_val) & (df[column] <= max_val)]
 
-    # ------------------ Yüzde / Yuvarlama ------------------
     def percentage_column(self, df, step):
         column = step.get("column")
         new_col = step.get("new_column")
@@ -236,7 +227,6 @@ class DataOperations:
         df[column] = df[column].round(digits)
         return df
 
-    # ------------------ Örnekleme ------------------
     def top(self, df, count=10):
         return df.head(count)
 
@@ -246,7 +236,6 @@ class DataOperations:
     def sample(self, df, count=10):
         return df.sample(n=min(count, len(df)))
 
-    # ------------------ Aykırı Değerler ------------------
     def detect_outliers(self, df, column):
         q1 = df[column].quantile(0.25)
         q3 = df[column].quantile(0.75)
@@ -263,11 +252,9 @@ class DataOperations:
         high = q3 + 1.5 * iqr
         return df[(df[column] >= low) & (df[column] <= high)]
 
-    # ------------------ Tekrar Edenler ------------------
     def duplicate_rows(self, df):
         return df[df.duplicated(keep=False)]
 
-    # ------------------ Özet / Raporlar ------------------
     def statistics(self, df):
         return df.describe().T.reset_index()
 
@@ -459,7 +446,6 @@ class DataOperations:
             })
         return pd.DataFrame(rows)
 
-    # ------------------ AI Fonksiyonları ------------------
     def ai_dataset_score(self, df):
         score = 100
         duplicate = int(df.duplicated().sum())
@@ -745,7 +731,6 @@ class DataOperations:
     def ai_export_json(self, df):
         return pd.DataFrame({"JSON": [df.to_json(orient="records", force_ascii=False)]})
 
-    # ------------------ Otomatik Temizleme ve Analiz ------------------
     def auto_clean(self, df):
         df = df.copy()
         df = df.drop_duplicates()
