@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import warnings
-from engine.operations import DataOperations
-from engine.matcher import ColumnMatcher
+from .operations import DataOperations
+from .matcher import ColumnMatcher
 
 
 class CommandEngine:
@@ -243,7 +243,6 @@ class CommandEngine:
                 result = self.ai_numeric_statistics(result, step)
             elif action == "ai_export_json":
                 result = self.ops.ai_export_json(result)
-            # ========== YENİ: execute_python ==========
             elif action == "execute_python":
                 result = self.execute_python(result, step)
 
@@ -438,8 +437,7 @@ class CommandEngine:
             self.find(step["column"], df)
         )
 
-    # ========== YENİ: execute_python ==========
-       def execute_python(self, df, step):
+    def execute_python(self, df, step):
         import warnings
         warnings.filterwarnings('ignore')
         
@@ -476,5 +474,4 @@ class CommandEngine:
             else:
                 raise Exception("Kod sonunda 'result' değişkeni tanımlanmamış!")
         except Exception as e:
-            # Hatayı detaylı fırlat
             raise Exception(f"Python kodu hatası: {str(e)}\nKod:\n{code}")
