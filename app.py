@@ -40,6 +40,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "last_json" not in st.session_state:
     st.session_state.last_json = None
+if "pending_plan" not in st.session_state:
+    st.session_state.pending_plan = None
 if "logs" not in st.session_state:
     st.session_state.logs = []
 if "uploaded_name" not in st.session_state:
@@ -211,7 +213,7 @@ with tab1:
         st.info("Lütfen önce bir ana dosya yükleyin.")
     else:
         # HIZLI İŞLEM BUTONLARI
-        st.markdown("⚡ **Hızlı Şablon İşlemleri:**")
+        st.markdown("⚡ **Hızlı İşlem Şablonları:**")
         b1, b2, b3, b4 = st.columns(4)
         if b1.button("🧹 Otomatik Temizle", use_container_width=True):
             st.session_state.quick_command = "Otomatik temizle"
@@ -228,12 +230,45 @@ with tab1:
         
         st.divider()
 
+        # Chat mesajlarını göster
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
         temperature = st.slider("Temperature", 0.0, 1.0, 0.1, 0.1)
         max_tokens = st.slider("Max Token", 256, 4096, 2048, 256)
+
+        # ONAY BEKLEYEN İŞLEM PANELDİ
+        if st.session_state.pending_plan is not None:
+            pending = st.session_state.pending_plan
+            st.info(f"📋 **Hazırlanan İşlem Planı:**\n\n{pending.get('plan', 'İşlem hazırlanıyor...')}")
+            
+            # Varsa Python kod önizlemesi
+            for step in pending.get("steps", []):
+                if step.get("action") == "execute_python":
+                    with st.expander("🐍 Çalıştırılacak Python Kodunu Göster", expanded=False):
+                        st.code(step.get("code", ""), language="python")
+
+            col_btn1, col_btn2 = st.columns(2)
+            if col_btn1.button("✅ Onayla ve Uygula", type="primary", use_container_width=True):
+                try:
+                    save_history()
+                    result = engine.execute(pending, st.session_state.current_df)
+                    st.session_state.current_df = result
+                    st.session_state.logs.append({"prompt": "ONAYLANDI", "json": pending})
+                    st.session_state.messages.append({"role": "assistant", "content": "✅ İşlem başarıyla uygulandı."})
+                    st.session_state.pending_plan = None
+                    st.rerun()
+                except Exception as e:
+                    st.session_state.messages.append({"role": "assistant", "content": f"❌ Uygulama Hatası: {str(e)}"})
+                    st.session_state.logs.append(traceback.format_exc())
+                    st.session_state.pending_plan = None
+                    st.rerun()
+
+            if col_btn2.button("❌ İptal Et", use_container_width=True):
+                st.session_state.pending_plan = None
+                st.session_state.messages.append({"role": "assistant", "content": "🚫 İşlem kullanıcı tarafından iptal edildi."})
+                st.rerun()
 
         prompt = None
         if st.session_state.quick_command:
@@ -242,12 +277,12 @@ with tab1:
         else:
             prompt = st.chat_input("AI'ya ne yapmak istediğini yaz...")
 
-        if prompt:
+        if prompt and st.session_state.pending_plan is None:
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
 
-            with st.spinner("AI düşünüyor..."):
+            with st.spinner("AI plan hazırlıyor..."):
                 try:
                     if st.session_state.current_df is None and st.session_state.ana_df is not None:
                         st.session_state.current_df = st.session_state.ana_df.copy()
@@ -255,7 +290,6 @@ with tab1:
                         st.error("Lütfen önce bir ana dosya yükleyin.")
                         st.stop()
                     
-                    save_history()
                     data = parser.parse(
                         prompt,
                         st.session_state.current_df,
@@ -263,13 +297,10 @@ with tab1:
                         max_tokens=max_tokens
                     )
                     st.session_state.last_json = data
-                    result = engine.execute(data, st.session_state.current_df)
-                    st.session_state.current_df = result
-                    st.session_state.logs.append({"prompt": prompt, "json": data})
-                    st.session_state.messages.append({"role": "assistant", "content": "✅ İşlem tamamlandı."})
+                    st.session_state.pending_plan = data
                     st.rerun()
                 except Exception as e:
-                    st.session_state.messages.append({"role": "assistant", "content": "❌ İşlem başarısız."})
+                    st.session_state.messages.append({"role": "assistant", "content": "❌ Plan oluşturulamadı."})
                     st.session_state.logs.append(traceback.format_exc())
                     st.error(f"Hata: {str(e)}")
                     st.rerun()
@@ -357,7 +388,7 @@ with tab5:
 
 st.divider()
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Versiyon", "1.0")
+c1.metric("Versiyon", "2.0")
 c2.metric("AI", "Groq Llama")
-c3.metric("Motor", "Command Engine")
+c3.metric("Mod", "Plan & Onay")
 c4.metric("Durum", "🟢 Hazır")
