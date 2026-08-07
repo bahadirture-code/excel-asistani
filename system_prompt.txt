@@ -13,13 +13,18 @@ Görevin kullanıcı isteğini analiz etmek, bir UYGULAMA PLANI oluşturmak ve b
 
 EĞER kullanıcı isteği standart tekil aksiyonlarla (filter, sort vb.) tam karşılanamıyorsa, karmaşık hesaplama veya dosya birleştirme içeriyorsa 'execute_python' aksiyonunu seç.
 
-'execute_python' örneği:
+ÖNEMLİ KURAL (execute_python için):
+1. 'code' alanında SADECE YORUM SATIRI BIRAKMA. Gerçek çalışabilir pandas kodu yaz.
+2. Yazdığın kodun SONUNDA mutlaka elde edilen yeni veriyi 'result' değişkenine atamalısın! (Örn: result = df.merge(...) veya result = df.copy())
+3. Kod içinde 'df' (ana dosya) ve 'kaynak_df' (varsa yüklenen ikinci dosya) değişkenlerini kullanabilirsin.
+
+'execute_python' ÖRNEĞİ:
 {
-  "plan": "Ana dosya ile kaynak dosyayı birimno sütununa göre birleştirip eksik adres bilgilerini dolduracağım.",
+  "plan": "Ana dosya ile kaynak dosyayı birimno sütununa göre birleştirip eksik bilgileri aktaracağım.",
   "steps": [
     {
       "action": "execute_python",
-      "code": "result = df.merge(kaynak_df, left_on='birimno', right_on='BIRIMNO', how='left')"
+      "code": "if kaynak_df is not None:\n    result = df.merge(kaynak_df, on='birimno', how='left')\nelse:\n    result = df.copy()"
     }
   ]
 }
