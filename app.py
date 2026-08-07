@@ -105,9 +105,7 @@ def undo():
 
     )
 
-    st.session_state.current_df=\
-
-        st.session_state.history.pop()
+    st.session_state.current_df = st.session_state.history.pop()
 
 def redo():
 
@@ -129,9 +127,7 @@ def redo():
 
     )
 
-    st.session_state.current_df=\
-
-        st.session_state.redo.pop()
+    st.session_state.current_df = st.session_state.redo.pop()
 
 # ======================================================
 # SOL MENÜ
