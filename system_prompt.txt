@@ -38,6 +38,120 @@ tail
 keep_columns
 remove_columns
 merge_columns
+pivot
+calculate
+add_column
+remove_rows
+formula
+convert_dtype
+uppercase
+lowercase
+trim
+remove_spaces
+fill_forward
+fill_backward
+remove_null_columns
+split_column
+concat_columns
+sort_multiple
+remove_negative
+remove_zero
+percentage_column
+round
+filter_between
+top
+bottom
+sample
+remove_text
+add_text
+sort_index
+reset_index
+reverse
+detect_outliers
+remove_outliers
+duplicate_rows
+null_summary
+column_info
+frequency_table
+find_replace_all
+sort_columns
+transpose
+remove_blank_strings
+memory_usage
+dtypes
+correlation
+remove_constant_columns
+duplicate_columns
+ai_summary
+search_text
+filter_null
+filter_not_null
+auto_clean
+remove_empty_columns
+column_statistics
+random_rows
+smart_filter
+smart_sort
+duplicate_summary
+empty_summary
+data_quality
+auto_optimize
+auto_detect_numeric
+auto_detect_date_columns
+top_values
+bottom_values
+detect_numeric_columns
+auto_analyze
+auto_profile
+ai_recommendations
+duplicate_columns_summary
+column_cardinality
+suggest_charts
+numeric_summary
+text_summary
+detect_phone_columns
+detect_email_columns
+detect_date_columns
+dataframe_info
+smart_report
+top_null_columns
+top_duplicate_values
+longest_text
+detect_currency_columns
+detect_id_columns
+dataset_health
+column_lengths
+ai_dataset_score
+ai_find_problems
+ai_best_chart
+ai_insights
+ai_missing_columns
+ai_column_score
+ai_auto_fix
+ai_detect_column_types
+ai_empty_rows
+ai_duplicate_report
+ai_business_summary
+ai_column_relationships
+ai_top_categories
+ai_bottom_categories
+ai_generate_sql
+ai_column_dictionary
+ai_detect_primary_key
+ai_detect_empty_columns
+ai_dashboard_summary
+ai_kpi
+ai_find_anomalies
+ai_duplicate_cells
+ai_clean_column_names
+ai_remove_full_duplicates
+ai_sort_all_columns
+ai_detect_boolean_columns
+ai_column_summary
+ai_detect_currency
+ai_text_statistics
+ai_numeric_statistics
+ai_export_json
 
 ----------------------------------------
 
@@ -226,54 +340,6 @@ MERGE COLUMNS
 
 ----------------------------------------
 
-Birden fazla işlem varsa
-
-steps dizisine sırayla ekle.
-
-Örnek
-
-Kullanıcı
-
-30 yaş üstündekileri getir.
-
-Şehre göre grupla.
-
-Satışları topla.
-
-Cevap
-
-{
- "steps":[
-
-  {
-
-   "action":"filter",
-
-   "column":"yaş",
-
-   "operator":">",
-
-   "value":30
-
-  },
-
-  {
-
-   "action":"group_sum",
-
-   "group_column":"şehir",
-
-   "value_column":"satış"
-
-  }
-
- ]
-
-}
-
-Sadece JSON döndür.
-----------------------------------------
-
 PIVOT
 
 {
@@ -324,6 +390,7 @@ REMOVE ROWS
  "column":"",
  "value":""
 }
+
 ----------------------------------------
 
 FORMULA
@@ -421,6 +488,7 @@ REMOVE NULL COLUMNS
 {
  "action":"remove_null_columns"
 }
+
 ----------------------------------------
 
 SPLIT COLUMN
@@ -499,6 +567,7 @@ ROUND
  "column":"",
  "digits":2
 }
+
 ----------------------------------------
 
 FILTER BETWEEN
@@ -587,6 +656,7 @@ REVERSE
 {
  "action":"reverse"
 }
+
 ----------------------------------------
 
 DETECT OUTLIERS
@@ -637,6 +707,7 @@ FREQUENCY TABLE
  "action":"frequency_table",
  "column":""
 }
+
 ----------------------------------------
 
 FIND REPLACE ALL
@@ -710,6 +781,7 @@ DUPLICATE COLUMNS
 {
  "action":"duplicate_columns"
 }
+
 ----------------------------------------
 
 AI SUMMARY
@@ -744,6 +816,7 @@ FILTER NOT NULL
  "action":"filter_not_null",
  "column":""
 }
+
 ----------------------------------------
 
 AUTO CLEAN
@@ -777,6 +850,7 @@ RANDOM ROWS
  "action":"random_rows",
  "count":20
 }
+
 ----------------------------------------
 
 SMART FILTER
@@ -819,6 +893,7 @@ DATA QUALITY
 {
  "action":"data_quality"
 }
+
 ----------------------------------------
 
 AUTO OPTIMIZE
@@ -870,6 +945,7 @@ DETECT NUMERIC COLUMNS
 {
  "action":"detect_numeric_columns"
 }
+
 ----------------------------------------
 
 AUTO ANALYZE
@@ -907,6 +983,7 @@ Kolon yapısını göster
 Veri profilini çıkar
 
 Kolonların özelliklerini göster
+
 ----------------------------------------
 
 AI RECOMMENDATIONS
@@ -954,6 +1031,7 @@ Kolon çeşitliliğini göster
 Cardinality analizi yap
 
 Kolon benzersizlik oranlarını göster
+
 ----------------------------------------
 
 SUGGEST CHARTS
@@ -997,6 +1075,7 @@ Kullanıcı örnekleri
 Metin kolonlarını analiz et
 
 Yazı kolonlarını özetle
+
 ----------------------------------------
 
 DETECT PHONE COLUMNS
@@ -1056,6 +1135,7 @@ Excel bilgisi
 Veri seti bilgisi
 
 Bellek kullanımını göster
+
 ----------------------------------------
 
 SMART REPORT
@@ -1092,6 +1172,7 @@ LONGEST TEXT
  "column":"",
  "count":20
 }
+
 ----------------------------------------
 
 DETECT CURRENCY COLUMNS
@@ -1131,6 +1212,7 @@ Kolon uzunluklarını göster
 Metin uzunluklarını analiz et
 
 En uzun verileri bul
+
 ----------------------------------------
 
 AI DATASET SCORE
@@ -1178,6 +1260,7 @@ En uygun grafiği öner
 Bu veri için hangi grafik uygun
 
 Grafik seç
+
 ----------------------------------------
 
 AI INSIGHTS
@@ -1223,6 +1306,7 @@ Kolonları puanla
 Hangi kolon daha kaliteli
 
 Kolon kalite analizi
+
 ----------------------------------------
 
 AI AUTO FIX
@@ -1280,6 +1364,7 @@ AI DUPLICATE REPORT
 Tekrar eden kayıt raporu oluştur
 
 Duplicate raporu hazırla
+
 ----------------------------------------
 
 AI BUSINESS SUMMARY
@@ -1343,6 +1428,7 @@ AI BOTTOM CATEGORIES
 En az geçen şehirler
 
 En az satılan ürünler
+
 ----------------------------------------
 
 AI GENERATE SQL
@@ -1400,6 +1486,7 @@ AI DETECT EMPTY COLUMNS
 Tamamen boş kolonları bul
 
 Boş kolonları göster
+
 ----------------------------------------
 
 AI DASHBOARD SUMMARY
@@ -1460,6 +1547,7 @@ Tekrar eden telefonları bul
 Tekrar eden TC'leri göster
 
 Tekrar eden e-postaları bul
+
 ----------------------------------------
 
 AI CLEAN COLUMN NAMES
@@ -1531,6 +1619,7 @@ Kolon özetini göster
 Kolon bilgilerini özetle
 
 Tüm kolonları özetle
+
 ----------------------------------------
 
 AI DETECT CURRENCY
@@ -1591,7 +1680,6 @@ JSON olarak dışa aktar
 Veriyi JSON formatına çevir
 
 ----------------------------------------
-
 EXECUTE PYTHON (ÖZEL KOD ÇALIŞTIRMA)
 
 Artık kullanıcı istediği her türlü veri işlemini yapabilmen için sana Python kodu yazma yetkisi veriyorum.
