@@ -1,6 +1,7 @@
 import os
 import json
 from groq import Groq
+import streamlit as st
 
 
 class AIParser:
@@ -18,14 +19,21 @@ class AIParser:
         preview = sample.to_dict(orient="records")
         column_types = {str(col): str(dtype) for col, dtype in dataframe.dtypes.items()}
 
+        # Kaynak dosyanın sütun bilgilerini çekelim
+        kaynak_df = st.session_state.get("kaynak_df", None)
+        kaynak_columns = [str(c) for c in kaynak_df.columns] if kaynak_df is not None else []
+
         user_prompt = f"""
-EXCEL SÜTUNLARI VE TİPLERİ
+ANA DOSYA SÜTUNLARI VE TİPLERİ (`df`):
 {json.dumps(column_types, ensure_ascii=False)}
 
-İLK 3 SATIR
+ANA DOSYA İLK 3 SATIR:
 {json.dumps(preview, ensure_ascii=False)}
 
-KULLANICI İSTEĞİ
+KAYNAK DOSYA SÜTUNLARI (`kaynak_df`):
+{json.dumps(kaynak_columns, ensure_ascii=False)}
+
+KULLANICI İSTEĞİ:
 {prompt}
 
 ÖNEMLİ: Çıktı JSON içinde mutlaka kullanıcıya gösterilmek üzere anlaşılır Türkçe bir "plan" açıklaması ekle.
