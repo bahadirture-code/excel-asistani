@@ -19,6 +19,7 @@ except ImportError as e:
     st.error(f"❌ Engine modülleri yüklenemedi: {str(e)}")
     st.stop()
 
+
 st.set_page_config(
     page_title="AI Excel Asistanı",
     page_icon="🤖",
@@ -28,25 +29,18 @@ st.set_page_config(
 
 if "current_df" not in st.session_state:
     st.session_state.current_df = None
-
 if "history" not in st.session_state:
     st.session_state.history = []
-
 if "redo" not in st.session_state:
     st.session_state.redo = []
-
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
 if "last_json" not in st.session_state:
     st.session_state.last_json = None
-
 if "logs" not in st.session_state:
     st.session_state.logs = []
-
 if "uploaded_name" not in st.session_state:
     st.session_state.uploaded_name = ""
-
 if "quick_command" not in st.session_state:
     st.session_state.quick_command = ""
 
@@ -79,17 +73,35 @@ def redo():
 
 with st.sidebar:
     st.title("🤖 AI Excel")
-    uploaded_file = st.file_uploader(
-        "Excel Dosyası",
-        type=["xlsx", "xls", "csv"]
+    
+    # ÇOKLU DOSYA YÜKLEME (accept_multiple_files=True)
+    uploaded_files = st.file_uploader(
+        "Excel Dosyaları (birden fazla seçebilirsiniz)",
+        type=["xlsx", "xls", "csv"],
+        accept_multiple_files=True
     )
-    if uploaded_file is not None:
-        st.session_state.uploaded_name = uploaded_file.name
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
+    
+    if uploaded_files:
+        # Dosya isimlerini birleştirip göster
+        file_names = [f.name for f in uploaded_files]
+        st.session_state.uploaded_name = ", ".join(file_names)
+        
+        # Tüm dosyaları oku
+        dfs = []
+        for file in uploaded_files:
+            if file.name.endswith(".csv"):
+                df = pd.read_csv(file)
+            else:
+                df = pd.read_excel(file)
+            dfs.append(df)
+        
+        # Tek bir DataFrame'de birleştir (satır bazında)
+        if len(dfs) == 1:
+            combined_df = dfs[0]
         else:
-            df = pd.read_excel(uploaded_file)
-        st.session_state.current_df = df
+            combined_df = pd.concat(dfs, ignore_index=True)
+        
+        st.session_state.current_df = combined_df
 
     st.divider()
     c1, c2 = st.columns(2)
@@ -103,7 +115,6 @@ with st.sidebar:
     st.divider()
     st.write("**Dosya**")
     st.write(st.session_state.uploaded_name)
-
     if st.session_state.current_df is not None:
         st.metric("Satır", len(st.session_state.current_df))
         st.metric("Sütun", len(st.session_state.current_df.columns))
