@@ -442,36 +442,25 @@ class CommandEngine:
         warnings.filterwarnings('ignore')
         
         code = step.get("code", "")
-        if not code:
-            raise Exception("Python kodu boş!")
+        if not code or code.strip().startswith("#") and "\n" not in code.strip():
+            raise Exception("AI geçerli bir Python kodu üretemedi, sadece yorum satırı döndürdü. Lütfen isteğinizi tekrar yazın.")
         
-        # Çalışma ortamı
+        # Çalışma ortamı - Varsayılan olarak result = df.copy() veriyoruz
         local_vars = {
             "df": df,
             "pd": pd,
             "np": np,
             "st": st,
-            "kaynak_df": st.session_state.get("kaynak_df", None)
+            "kaynak_df": st.session_state.get("kaynak_df", None),
+            "result": df.copy() # Varsayılan güvenlik yedeği
         }
-        
-        # Hata ayıklama için kodu ve değişkenleri logla
-        print("--- EXECUTE_PYTHON ---")
-        print("Code:", code)
-        print("df columns:", df.columns.tolist())
-        if local_vars["kaynak_df"] is not None:
-            print("kaynak_df columns:", local_vars["kaynak_df"].columns.tolist())
-        else:
-            print("kaynak_df: None")
         
         try:
             exec(code, {}, local_vars)
-            if "result" in local_vars:
-                result_df = local_vars["result"]
-                if isinstance(result_df, pd.DataFrame):
-                    return result_df
-                else:
-                    raise Exception(f"Kod sonucu bir DataFrame değil, tip: {type(result_df)}")
+            result_df = local_vars.get("result")
+            if isinstance(result_df, pd.DataFrame):
+                return result_df
             else:
-                raise Exception("Kod sonunda 'result' değişkeni tanımlanmamış!")
+                raise Exception(f"Kod sonucu bir DataFrame değil, tip: {type(result_df)}")
         except Exception as e:
-            raise Exception(f"Python kodu hatası: {str(e)}\nKod:\n{code}")
+            raise Exception(f"Python kodu hatası: {str(e)}\nÜretilen Kod:\n{code}")
