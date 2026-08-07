@@ -28,18 +28,25 @@ st.set_page_config(
 
 if "current_df" not in st.session_state:
     st.session_state.current_df = None
+
 if "history" not in st.session_state:
     st.session_state.history = []
+
 if "redo" not in st.session_state:
     st.session_state.redo = []
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
 if "last_json" not in st.session_state:
     st.session_state.last_json = None
+
 if "logs" not in st.session_state:
     st.session_state.logs = []
+
 if "uploaded_name" not in st.session_state:
     st.session_state.uploaded_name = ""
+
 if "quick_command" not in st.session_state:
     st.session_state.quick_command = ""
 
@@ -50,26 +57,20 @@ engine = CommandEngine()
 def save_history():
     if st.session_state.current_df is None:
         return
-    st.session_state.history.append(
-        deepcopy(st.session_state.current_df)
-    )
+    st.session_state.history.append(deepcopy(st.session_state.current_df))
     if len(st.session_state.history) > 20:
         st.session_state.history.pop(0)
 
 def undo():
     if len(st.session_state.history) == 0:
         return
-    st.session_state.redo.append(
-        deepcopy(st.session_state.current_df)
-    )
+    st.session_state.redo.append(deepcopy(st.session_state.current_df))
     st.session_state.current_df = st.session_state.history.pop()
 
 def redo():
     if len(st.session_state.redo) == 0:
         return
-    st.session_state.history.append(
-        deepcopy(st.session_state.current_df)
-    )
+    st.session_state.history.append(deepcopy(st.session_state.current_df))
     st.session_state.current_df = st.session_state.redo.pop()
 
 # ======================================================
@@ -102,17 +103,12 @@ with st.sidebar:
     st.divider()
     st.write("**Dosya**")
     st.write(st.session_state.uploaded_name)
+
     if st.session_state.current_df is not None:
         st.metric("Satır", len(st.session_state.current_df))
         st.metric("Sütun", len(st.session_state.current_df.columns))
-        st.metric(
-            "Boş Hücre",
-            int(st.session_state.current_df.isna().sum().sum())
-        )
-        st.metric(
-            "Tekrar Eden",
-            int(st.session_state.current_df.duplicated().sum())
-        )
+        st.metric("Boş Hücre", int(st.session_state.current_df.isna().sum().sum()))
+        st.metric("Tekrar Eden", int(st.session_state.current_df.duplicated().sum()))
 
 # ======================================================
 # ANA EKRAN
@@ -135,12 +131,8 @@ with tab1:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        temperature = st.slider(
-            "Temperature", 0.0, 1.0, 0.0, 0.1
-        )
-        max_tokens = st.slider(
-            "Max Token", 256, 4096, 2048, 256
-        )
+        temperature = st.slider("Temperature", 0.0, 1.0, 0.0, 0.1)
+        max_tokens = st.slider("Max Token", 256, 4096, 2048, 256)
 
         prompt = None
         if st.session_state.quick_command:
@@ -150,9 +142,7 @@ with tab1:
             prompt = st.chat_input("AI'ya ne yapmak istediğini yaz...")
 
         if prompt:
-            st.session_state.messages.append(
-                {"role": "user", "content": prompt}
-            )
+            st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
 
@@ -166,22 +156,13 @@ with tab1:
                         max_tokens=max_tokens
                     )
                     st.session_state.last_json = data
-                    result = engine.execute(
-                        data,
-                        st.session_state.current_df
-                    )
+                    result = engine.execute(data, st.session_state.current_df)
                     st.session_state.current_df = result
-                    st.session_state.logs.append(
-                        {"prompt": prompt, "json": data}
-                    )
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": "✅ İşlem tamamlandı."}
-                    )
+                    st.session_state.logs.append({"prompt": prompt, "json": data})
+                    st.session_state.messages.append({"role": "assistant", "content": "✅ İşlem tamamlandı."})
                     st.rerun()
                 except Exception as e:
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": "❌ İşlem başarısız."}
-                    )
+                    st.session_state.messages.append({"role": "assistant", "content": "❌ İşlem başarısız."})
                     st.session_state.logs.append(traceback.format_exc())
                     st.error(f"Hata: {str(e)}")
                     st.rerun()
@@ -193,11 +174,7 @@ with tab1:
 with tab2:
     st.subheader("📄 Veri")
     if st.session_state.current_df is not None:
-        st.dataframe(
-            st.session_state.current_df,
-            use_container_width=True,
-            height=700
-        )
+        st.dataframe(st.session_state.current_df, use_container_width=True, height=700)
     else:
         st.info("Veri bulunamadı.")
 
@@ -219,11 +196,7 @@ with tab3:
 
         numeric = df.select_dtypes(include="number")
         if len(numeric.columns) > 0:
-            column = st.selectbox(
-                "Grafik Kolonu",
-                numeric.columns,
-                key="dashboard_numeric"
-            )
+            column = st.selectbox("Grafik Kolonu", numeric.columns, key="dashboard_numeric")
             fig = go.Figure()
             fig.add_bar(x=df.index, y=df[column], name=column)
             fig.update_layout(height=450, template="plotly_white")
@@ -246,11 +219,7 @@ with tab4:
         st.json(st.session_state.last_json)
         st.download_button(
             "📥 JSON İndir",
-            json.dumps(
-                st.session_state.last_json,
-                indent=4,
-                ensure_ascii=False
-            ),
+            json.dumps(st.session_state.last_json, indent=4, ensure_ascii=False),
             file_name="ai_response.json",
             mime="application/json"
         )
@@ -302,11 +271,7 @@ if st.session_state.current_df is not None:
         )
         st.download_button(
             "📥 JSON",
-            st.session_state.current_df.to_json(
-                orient="records",
-                force_ascii=False,
-                indent=2
-            ),
+            st.session_state.current_df.to_json(orient="records", force_ascii=False, indent=2),
             file_name="AI_EXCEL.json",
             mime="application/json",
             use_container_width=True
